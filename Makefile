@@ -28,9 +28,12 @@ build-drivers:
 
 install-drivers: build-drivers
 	@mkdir -p $(PREFIX)/bin
+	@mkdir -p $(HOME)/.claw/drivers
 	@for bin in $(BUILD_DIR)/claw-driver-*; do \
 		cp $$bin $(PREFIX)/bin/; \
 		echo "Installed: $(PREFIX)/bin/$$(basename $$bin)"; \
+		cp $$bin $(HOME)/.claw/drivers/; \
+		echo "Installed: $(HOME)/.claw/drivers/$$(basename $$bin)"; \
 	done
 
 install-all: install install-drivers
