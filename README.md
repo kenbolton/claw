@@ -15,6 +15,7 @@ claw agent -g main "What is 2+2?"
 claw ps
 claw watch -g main
 claw health
+claw api serve
 ```
 
 ## The problem
@@ -116,6 +117,17 @@ claw watch                      Stream messages in real time
 
 claw archs                      List installed drivers and their versions
 
+claw api serve                  Start the HTTP+WebSocket API server
+  --port <N>                    Port to listen on (default: 7474)
+  --bind <addr>                 Address to bind to (default: 127.0.0.1)
+  --token <secret>              Enable bearer token authentication
+  --source-dir <path>           Target a specific installation directory
+  --cors-origin <origin>        Additional allowed CORS origins (repeatable)
+  Binds localhost only by default. --bind 0.0.0.0 requires --token.
+  REST: /api/v1/{archs,ps,health,groups,sessions}
+  WebSocket: /ws/{watch,agent,health}
+  See spec/API.md for full endpoint documentation.
+
 claw completion <bash|zsh|fish> Generate shell completion scripts
   --install                     Install to the appropriate system path
 ```
@@ -151,13 +163,13 @@ claw-driver-pico       # ships with PicoClaw     planned
 
 ### Writing a new driver
 
-A driver is any executable named `claw-driver-<arch>` that reads NDJSON from stdin and writes NDJSON to stdout. It must handle `version_request` and `probe_request` at minimum; add `ps_request`, `agent_request`, `watch_request`, and `health_request` to support the full command set.
+A driver is any executable named `claw-driver-<arch>` that reads NDJSON from stdin and writes NDJSON to stdout. It must handle `version_request` and `probe_request` at minimum; add `ps_request`, `agent_request`, `watch_request`, `health_request`, `groups_request`, and `sessions_request` to support the full command set.
 
 Create a `drivers/<arch>/` directory with its own `go.mod` (or use any language — drivers are just binaries). See [spec/DRIVER.md](spec/DRIVER.md) for the full protocol.
 
 ## Building
 
-Requires Go 1.22+.
+Requires Go 1.23+.
 
 ```bash
 # Build and install claw + all drivers (default: ~/.local/bin/)
@@ -205,6 +217,26 @@ claw completion fish --install
 | Variable | Purpose |
 |----------|---------|
 | `NANOCLAW_DIR` | Override NanoClaw installation directory (default: auto-detect or `~/src/nanoclaw`) |
+
+## API server
+
+`claw api serve` starts an HTTP+WebSocket server that exposes the driver protocol over the network. It is a thin translation layer — no business logic, just NDJSON-over-subprocess becomes JSON-over-HTTP/WS.
+
+```
+$ claw api serve
+claw api serve — listening on 127.0.0.1:7474 (2 drivers, auth: off)
+```
+
+```
+$ curl -s localhost:7474/api/v1/ps | jq
+{
+  "instances": [
+    {"id": "nanoclaw-main", "arch": "nanoclaw", "group": "main", "state": "running", "age": "3m"}
+  ]
+}
+```
+
+The primary consumer is `claw-console` (the web dashboard), but any HTTP client can use it. See [spec/API.md](spec/API.md) for the full endpoint reference.
 
 ## Status
 

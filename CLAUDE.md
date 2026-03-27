@@ -46,12 +46,20 @@ make fmt
 
 Drivers are independently built and discovered at runtime via `~/.claw/drivers/` then `$PATH`, matching `claw-driver-*`. Adding a new driver means creating a `drivers/<arch>/` directory with its own `go.mod`.
 
-**Data flow:**
+**Data flow (CLI):**
 ```
 claw <command> → driver.go locates claw-driver-<arch>
               → spawns driver, writes NDJSON request to stdin
               → reads NDJSON response stream from stdout
               → formats output for terminal
+```
+
+**Data flow (API server):**
+```
+claw api serve → starts HTTP+WebSocket server on localhost:7474
+  GET /api/v1/ps  → fans out ps_request to all drivers concurrently → merges JSON response
+  WS /ws/watch/main → spawns driver with watch_request → streams NDJSON as WS messages
+  WS /ws/agent/main → reads prompt from WS → spawns driver → streams response → loops for multi-turn
 ```
 
 **Key packages:**
@@ -82,6 +90,8 @@ See `spec/DRIVER.md` for the full protocol spec.
 - `agent.go` — resolves group, reads secrets from `.env`, spawns `nanoclaw-agent` container with structured mounts (`/workspace/group`, `/workspace/project`, `/home/node/.claude`), streams output through NDJSON. `--native` bypasses the container and runs the agent-runner via Node.js directly; `--verbose` pipes agent-runner stderr to the terminal.
 - `watch.go` — emits historical messages then polls SQLite for new rows; exits on stdin close
 - `health.go` — runs 7 health checks (runtime, credentials, database, disk, sessions, groups, image) using existing helpers; streams `check_result` messages
+- `groups.go` — lists registered groups from SQLite via `readGroupRows()`; streams `group` messages
+- `sessions.go` — derives sessions from messages table grouped by day; streams `session` messages
 
 Source-dir detection: `NANOCLAW_DIR` env var → walk up from binary → `~/src/nanoclaw`.
 
@@ -92,6 +102,8 @@ Source-dir detection: `NANOCLAW_DIR` env var → walk up from binary → `~/src/
 - `ps.go` — checks both native `zeptoclaw gateway/daemon` processes and `zeptoclaw-*` containers
 - `watch.go` — polls `~/.zeptoclaw/sessions/` for CLI session messages (500ms interval)
 - `health.go` — runs applicable health checks (runtime, credentials, disk, sessions); database/groups/image return "not applicable"
+- `groups.go` — returns UNSUPPORTED (zepto has no groups database)
+- `sessions.go` — reads `~/.zeptoclaw/sessions/*.json` files; streams `session` messages
 
 ## Relationship to other projects
 

@@ -27,7 +27,8 @@ Examples:
   claw ps
   claw watch -g main
   claw health
-  claw archs`,
+  claw archs
+  claw api serve`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},

@@ -12,6 +12,7 @@ one or many machines.
 |------|--------|---------|
 | `claw` | v0.1 | Unified CLI — run agents, watch conversations, inspect instances |
 | `claw health` | v0.1 | Diagnostic health checks across installations |
+| `claw api` | v0.1 | HTTP+WebSocket server exposing driver protocol for `claw-console` |
 | `molt` | v0.1 | Migration — export/import groups, memory, skills between architectures |
 
 ---
@@ -68,20 +69,6 @@ Continuous incremental backup (extends `molt`).
 
 ---
 
-### `claw api`
-
-HTTP + WebSocket server exposing the driver protocol over the network.
-Thin translation layer — no business logic, just NDJSON-over-subprocess
-becomes JSON-over-HTTP/WS.
-
-- `claw api serve [--port 7474] [--bind 127.0.0.1]`
-- REST endpoints for static data: health, ps, groups
-- WebSocket endpoints for streams: watch, agent output
-- Localhost-only by default; `--bind 0.0.0.0 --token <secret>` for remote
-- Powers `claw-console` (the dashboard)
-
----
-
 ### `claw-console`
 
 Web dashboard for claw operators. Separate repo, talks to `claw api`.
@@ -114,6 +101,8 @@ As the toolchain grows, the driver protocol will need new request types:
 | Request type | Purpose | Used by |
 |---|---|---|
 | `health_request` | Installation diagnostics | `claw health` |
+| `groups_request` | List registered groups | `claw api` |
+| `sessions_request` | List recent sessions | `claw api` |
 | `upgrade_request` | Pull + rebuild | `claw upgrade` |
 | `skill_request` | Skill CRUD | `claw skill` |
 | `secrets_request` | Credential management | `claw secrets` |
@@ -126,9 +115,10 @@ don't implement yet.
 ## Rough sequence
 
 1. ~~`claw health`~~ — done
-2. `molt sync` — production safety net before pushing upgrades
-3. `claw secrets` — operational pain point once you have 3+ installations
-4. `claw upgrade` — depends on health + secrets being solid first
-5. `claw api` + `claw-console` — visibility layer, most impactful after health
-6. `claw skill` — nice to have, lower urgency
-7. `claw bench` — longer tail, needs baseline data to be useful
+2. ~~`claw api`~~ — done
+3. `molt sync` — production safety net before pushing upgrades
+4. `claw secrets` — operational pain point once you have 3+ installations
+5. `claw upgrade` — depends on health + secrets being solid first
+6. `claw-console` — visibility layer, connects to `claw api`
+7. `claw skill` — nice to have, lower urgency
+8. `claw bench` — longer tail, needs baseline data to be useful

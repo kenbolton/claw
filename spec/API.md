@@ -274,17 +274,22 @@ console deployments.
 ## Implementation notes
 
 - The server is a subcommand of the existing `claw` binary — no separate
-  binary needed. `claw api serve` starts it; `claw api status` checks if
-  one is running on the default port.
+  binary needed. `claw api serve` starts it.
+- Implementation lives in the `api/` package (`server.go`, `middleware.go`,
+  `fanout.go`, `errors.go`, `rest_*.go`, `ws_*.go`). Cobra wiring is in
+  `src/cmd/api.go`.
+- Uses Go 1.23's `net/http.ServeMux` with native path parameters and
+  `github.com/coder/websocket` for WebSocket support. No external framework.
 - Each WebSocket connection that requires a driver spawns one driver
   subprocess. The watch connection holds the subprocess alive until
   disconnect; agent connections spawn per-prompt (matching CLI behavior).
 - `GET /api/v1/ps` and `GET /api/v1/health` fan out to all installed
-  drivers concurrently and merge results.
+  drivers concurrently (via `fanout.go`) and merge results.
 - The server does not cache driver state — every REST request invokes the
   driver fresh. WebSocket streams hold the subprocess open.
-- Go's `net/http` + `golang.org/x/net/websocket` (or `nhooyr.io/websocket`)
-  is sufficient. No external framework needed.
+- Two new driver protocol messages (`groups_request`, `sessions_request`)
+  were added to support the groups and sessions endpoints. See
+  `spec/DRIVER.md`.
 
 ---
 
