@@ -44,6 +44,7 @@ func init() {
 	agentCmd.Flags().StringVarP(&flagSession, "session", "s", "", "Session ID to resume")
 	agentCmd.Flags().StringVarP(&flagFile, "file", "f", "", "Read prompt from a file")
 	agentCmd.Flags().BoolVarP(&flagPipe, "pipe", "p", false, "Read prompt from stdin")
+	agentCmd.Flags().BoolVar(&flagNative, "native", false, "Run agent natively without a container (dev mode, no sandbox)")
 
 	_ = agentCmd.RegisterFlagCompletionFunc("group", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -78,6 +79,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		"prompt":     prompt,
 		"session_id": flagSession,
 		"resume_at":  "",
+		"native":     flagNative,
 	}
 
 	scanner, wait, err := d.SendRequestAndClose(req)

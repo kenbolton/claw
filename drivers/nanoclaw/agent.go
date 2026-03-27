@@ -277,6 +277,14 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 	_ = os.Remove(projectLink)
 	_ = os.Symlink(sourceDir, projectLink)
 
+	// /home/node/.claude → session persistence across REPL turns (mirrors container mount).
+	// Symlinked as workspaceRoot/claude; HOME is overridden so node resolves ~/.claude there.
+	claudeDir := filepath.Join(sourceDir, "data", "sessions", group.Folder, ".claude")
+	_ = os.MkdirAll(claudeDir, 0755)
+	claudeLink := filepath.Join(workspaceRoot, "claude")
+	_ = os.Remove(claudeLink)
+	_ = os.Symlink(claudeDir, claudeLink)
+
 	// ipc/input dir (agent-runner polls this)
 	ipcInputDir := filepath.Join(workspaceRoot, "ipc", "input")
 	_ = os.MkdirAll(ipcInputDir, 0755)
@@ -322,9 +330,11 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 	}
 	payloadJSON, _ := json.Marshal(payload)
 
-	// Build env: inherit host env + secrets + workspace root
+	// Build env: inherit host env + secrets + workspace root.
+	// Override HOME so node resolves ~/.claude to the per-group session dir.
 	env := os.Environ()
 	env = append(env, "NANOCLAW_WORKSPACE_ROOT="+workspaceRoot)
+	env = append(env, "HOME="+workspaceRoot)
 	for k, v := range secrets {
 		env = append(env, k+"="+v)
 	}
