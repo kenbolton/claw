@@ -62,7 +62,9 @@ claw repl                       Interactive REPL — maintains session context a
   -g, --group <name>            Target group by name or folder (fuzzy match)
   -j, --jid <jid>               Target group by exact JID
   -s, --session <id>            Resume an existing session
-  Slash commands: /session  /new  /exit  /help
+      --native                  Run agent natively without a container (dev mode, no sandbox)
+      --verbose                 Show agent-runner diagnostic output
+  Slash commands: /new  /session  /history  /exit  /help
 
 claw agent [prompt]             Send a single prompt to an agent
   -g, --group <name>            Target group by name or folder (fuzzy match)
@@ -70,6 +72,8 @@ claw agent [prompt]             Send a single prompt to an agent
   -s, --session <id>            Session ID to resume
   -f, --file <path>             Read prompt from a file
   -p, --pipe                    Read prompt from stdin
+      --native                  Run agent natively without a container (dev mode, no sandbox)
+      --verbose                 Show agent-runner diagnostic output
   Prompt sources combine: -f and --pipe append to the positional arg.
 
 claw ps                         List running agent instances
@@ -111,10 +115,10 @@ nanoclaw             1.2.35       0.1.0        /Users/you/.claw/drivers/claw-dri
 Available drivers:
 
 ```
-claw-driver-nanoclaw   # ships with NanoClaw
-claw-driver-zepto      # ships with ZeptoClaw
-claw-driver-openclaw   # ships with OpenClaw
-claw-driver-pico       # ships with PicoClaw
+claw-driver-nanoclaw   # ships with NanoClaw   ✓ available
+claw-driver-zepto      # ships with ZeptoClaw  ✓ available
+claw-driver-openclaw   # ships with OpenClaw     planned
+claw-driver-pico       # ships with PicoClaw     planned
 ```
 
 ### Writing a new driver
@@ -176,6 +180,6 @@ claw completion fish --install
 
 ## Status
 
-NanoClaw driver complete (v0.1.0). ZeptoClaw, OpenClaw, and PicoClaw drivers planned.
+NanoClaw and ZeptoClaw drivers complete (v0.1.0). OpenClaw and PicoClaw drivers planned.
 
 Contributions welcome — especially drivers for architectures we haven't seen yet.

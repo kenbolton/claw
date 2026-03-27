@@ -39,9 +39,10 @@ make fmt
 
 ## Architecture
 
-**Two separate Go modules** (same layout as molt):
+**Three separate Go modules** (same layout as molt):
 - Root module (`go.mod`) — the `claw` CLI binary, in `src/`. Uses Cobra.
 - `drivers/nanoclaw/go.mod` — the nanoclaw driver, a standalone binary.
+- `drivers/zepto/go.mod` — the zepto driver, a standalone binary.
 
 Drivers are independently built and discovered at runtime via `~/.claw/drivers/` then `$PATH`, matching `claw-driver-*`. Adding a new driver means creating a `drivers/<arch>/` directory with its own `go.mod`.
 
@@ -55,8 +56,9 @@ claw <command> → driver.go locates claw-driver-<arch>
 
 **Key packages:**
 - `driver/` — driver discovery (`FindAll`, `Locate`), version probe, NDJSON protocol methods
-- `src/cmd/` — Cobra commands (`agent`, `ps`, `watch`, `archs`, `completion`)
+- `src/cmd/` — Cobra commands (`repl`, `agent`, `ps`, `watch`, `archs`, `completion`)
 - `drivers/nanoclaw/` — standalone NanoClaw driver binary (separate Go module)
+- `drivers/zepto/` — standalone ZeptoClaw driver binary (separate Go module)
 
 ## Driver protocol
 
@@ -72,11 +74,18 @@ See `spec/DRIVER.md` for the full protocol spec.
 ## NanoClaw driver internals
 
 - `db.go` — SQLite helpers: open `store/messages.db`, read groups, read messages, fuzzy group matching
-- `ps.go` — queries container runtime (Docker or Apple Containers) + joins with SQLite `registered_groups`
-- `agent.go` — resolves group, reads secrets from `.env`, spawns `nanoclaw-agent` container, streams output through NDJSON
+- `ps.go` — queries container runtime (Docker or Apple Containers) + joins with SQLite `registered_groups`; longest-prefix match handles `nanoclaw-<folder>-<timestamp>` style container names
+- `agent.go` — resolves group, reads secrets from `.env`, spawns `nanoclaw-agent` container with structured mounts (`/workspace/group`, `/workspace/project`, `/home/node/.claude`), streams output through NDJSON. `--native` bypasses the container and runs the agent-runner via Node.js directly; `--verbose` pipes agent-runner stderr to the terminal.
 - `watch.go` — emits historical messages then polls SQLite for new rows; exits on stdin close
 
-Source-dir detection follows the nanoclaw Python CLI pattern: `NANOCLAW_DIR` env var → walk up from binary → `~/src/nanoclaw`.
+Source-dir detection: `NANOCLAW_DIR` env var → walk up from binary → `~/src/nanoclaw`.
+
+## ZeptoClaw driver internals
+
+- `probe.go` — detects ZeptoClaw via `~/.zeptoclaw/config.json` and binary presence; overridable via `ZEPTOCLAW_DIR` / `ZEPTOCLAW_BIN`
+- `agent.go` — sends requests to `zeptoclaw agent-stdin` using the gateway IPC format; threads session keys for REPL continuity
+- `ps.go` — checks both native `zeptoclaw gateway/daemon` processes and `zeptoclaw-*` containers
+- `watch.go` — polls `~/.zeptoclaw/sessions/` for CLI session messages (500ms interval)
 
 ## Relationship to other projects
 

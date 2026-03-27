@@ -65,7 +65,7 @@ Driver emits zero or more instance messages, then a completion:
 
 ### agent_request
 
-Send a prompt to an agent container.
+Send a prompt to an agent.
 
 ```json
 {
@@ -75,9 +75,14 @@ Send a prompt to an agent container.
   "jid": "",
   "prompt": "What is 2+2?",
   "session_id": "",
-  "resume_at": ""
+  "resume_at": "",
+  "native": false,
+  "verbose": false
 }
 ```
+
+- `native` — run without a container (driver-specific; nanoclaw runs the agent-runner via Node.js). Drivers that don't support native mode may ignore this field.
+- `verbose` — pipe agent-runner/container diagnostic stderr to the terminal.
 
 Driver streams output chunks, then a completion:
 
@@ -125,8 +130,10 @@ Any request can result in an error:
 | `MISSING_PROMPT` | agent_request without a prompt |
 | `GROUP_NOT_FOUND` | Could not resolve the specified group |
 | `NO_RUNTIME` | No container runtime (docker/container) found |
-| `SPAWN_ERROR` | Failed to start the agent container |
+| `SPAWN_ERROR` | Failed to start the agent container or process |
 | `DB_ERROR` | Database read error |
+| `NATIVE_NO_NODE` | `--native` requested but `node` not found in PATH |
+| `NATIVE_NO_DIST` | `--native` requested but agent-runner dist not built |
 
 ## Lifecycle
 
