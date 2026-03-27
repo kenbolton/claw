@@ -2,3 +2,5 @@ build/
 
 .DS_Store
 .claude/
+drivers/nanoclaw/claw-driver-nanoclaw
+drivers/zepto/claw-driver-zepto
