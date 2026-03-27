@@ -1,8 +1,14 @@
-# claw
+# claw - Universal CLI for claw agent architectures.
 
-Universal CLI for claw agent architectures.
+<p align="center">
+  <img src="assets/terminal-grip.svg" alt="Claw" width="100">
+</p>
 
-One binary to manage agents, watch conversations, and inspect running instances across NanoClaw, OpenClaw, ZeptoClaw, PicoClaw, and others — regardless of which architecture you're running.
+<p align="center">
+    One binary to manage agents, watch conversations, and inspect running instances across NanoClaw, OpenClaw, ZeptoClaw, PicoClaw, and others — regardless of which architecture you're running.
+</p>
+
+
 
 ```
 claw agent -g main "What is 2+2?"
@@ -52,7 +58,13 @@ Without `--arch`, commands like `ps` query all installed drivers and merge the r
 ## Commands
 
 ```
-claw agent [prompt]             Send a prompt to an agent
+claw repl                       Interactive REPL — maintains session context across prompts
+  -g, --group <name>            Target group by name or folder (fuzzy match)
+  -j, --jid <jid>               Target group by exact JID
+  -s, --session <id>            Resume an existing session
+  Slash commands: /session  /new  /exit  /help
+
+claw agent [prompt]             Send a single prompt to an agent
   -g, --group <name>            Target group by name or folder (fuzzy match)
   -j, --jid <jid>               Target group by exact JID
   -s, --session <id>            Session ID to resume
