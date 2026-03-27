@@ -59,5 +59,9 @@ jobs:
           cache: true
       - name: Cross-compile core
         run: make build-all
-      - name: Cross-compile drivers
-        run: make build-drivers
+      - name: Cross-compile nanoclaw driver
+        working-directory: drivers/nanoclaw
+        run: make build-all
+      - name: Cross-compile zepto driver
+        working-directory: drivers/zepto
+        run: make build-all
