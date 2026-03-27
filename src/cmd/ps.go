@@ -154,7 +154,7 @@ func runPs(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, w := range warnings {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w)
 	}
 	return nil
 }

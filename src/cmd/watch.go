@@ -72,7 +72,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 		_ = stdin.Close()
 	}()
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Watching (Ctrl-C to stop)...\n")
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Watching (Ctrl-C to stop)...\n")
 
 	for scanner.Scan() {
 		var msg map[string]interface{}

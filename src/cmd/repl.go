@@ -37,6 +37,7 @@ func init() {
 	replCmd.Flags().StringVarP(&flagJID, "jid", "j", "", "Target group by exact JID")
 	replCmd.Flags().StringVarP(&flagSession, "session", "s", "", "Session ID to resume (gateway mode)")
 	replCmd.Flags().BoolVar(&flagNative, "native", false, "Run agent natively without a container (dev mode, no sandbox)")
+	replCmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Show agent-runner diagnostic output")
 
 	_ = replCmd.RegisterFlagCompletionFunc("group", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -72,7 +73,7 @@ func runRepl(cmd *cobra.Command, _ []string) error {
 	if sessionID != "" {
 		fmt.Fprintf(os.Stderr, " (session: %s)", sessionID)
 	}
-	fmt.Fprintln(os.Stderr, "\nType your prompt and press Enter. Ctrl-D or /exit to quit.\n")
+	fmt.Fprintln(os.Stderr, "\nType your prompt and press Enter. Ctrl-D or /exit to quit.")
 
 	stdin := bufio.NewReader(os.Stdin)
 	// TODO: cap history to avoid unbounded prompt growth on long sessions.
@@ -133,6 +134,7 @@ func runRepl(cmd *cobra.Command, _ []string) error {
 			"session_id": sessionID,
 			"resume_at":  "",
 			"native":     flagNative,
+			"verbose":    flagVerbose,
 		}
 		if sessionID != "" {
 			req["resume_at"] = "latest"

@@ -93,7 +93,6 @@ func handleAgent(msg map[string]interface{}) {
 			continue
 		}
 		if strings.TrimSpace(line) == responseEndMarker {
-			collecting = false
 			// Parse and emit
 			raw := strings.Join(responseLines, "\n")
 			emitAgentResponse(raw, sessionID)
@@ -138,8 +137,8 @@ type agentResponse struct {
 
 type agentResult struct {
 	// Success fields
-	Content *string      `json:"content,omitempty"`
-	Session interface{}  `json:"session,omitempty"`
+	Content *string     `json:"content,omitempty"`
+	Session interface{} `json:"session,omitempty"`
 	// Error fields
 	Message *string `json:"message,omitempty"`
 	Code    *string `json:"code,omitempty"`

@@ -198,10 +198,7 @@ func dockerZeptoContainers() []map[string]interface{} {
 		if strings.Contains(s, "running") {
 			state = "running"
 		}
-		age := c["RunningFor"]
-		if strings.HasSuffix(age, " ago") {
-			age = age[:len(age)-4]
-		}
+		age := strings.TrimSuffix(c["RunningFor"], " ago")
 
 		if !strings.HasPrefix(cid, "zeptoclaw-") {
 			continue

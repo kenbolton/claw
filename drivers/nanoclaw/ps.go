@@ -155,10 +155,7 @@ func fetchDockerContainers() []containerInfo {
 		if strings.Contains(s, "running") {
 			state = "running"
 		}
-		age := c["RunningFor"]
-		if strings.HasSuffix(age, " ago") {
-			age = age[:len(age)-4]
-		}
+		age := strings.TrimSuffix(c["RunningFor"], " ago")
 
 		if !strings.Contains(image, "nanoclaw-agent") && !strings.HasPrefix(cid, "nanoclaw-") {
 			continue

@@ -118,21 +118,3 @@ func detectArchVersion(sourceDir string) string {
 	}
 	return "unknown"
 }
-
-// readConfig reads key fields from ~/.zeptoclaw/config.json.
-type zeptoConfig struct {
-	Version  string            `json:"version"`
-	Channels map[string]interface{} `json:"channels"`
-}
-
-func readConfig(dataDir string) (*zeptoConfig, error) {
-	data, err := os.ReadFile(filepath.Join(dataDir, "config.json"))
-	if err != nil {
-		return nil, err
-	}
-	var cfg zeptoConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-	return &cfg, nil
-}

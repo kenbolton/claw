@@ -24,6 +24,7 @@ func handleAgent(msg map[string]interface{}) {
 	sessionID, _ := msg["session_id"].(string)
 	resumeAt, _ := msg["resume_at"].(string)
 	native, _ := msg["native"].(bool)
+	verbose, _ := msg["verbose"].(bool)
 
 	if prompt == "" {
 		writeError("MISSING_PROMPT", "prompt is required")
@@ -39,7 +40,7 @@ func handleAgent(msg map[string]interface{}) {
 	secrets := readSecrets(sourceDir)
 
 	if native {
-		handleAgentNative(group, sourceDir, prompt, sessionID, resumeAt, secrets)
+		handleAgentNative(group, sourceDir, prompt, sessionID, resumeAt, secrets, verbose)
 		return
 	}
 
@@ -125,7 +126,9 @@ func handleAgent(msg map[string]interface{}) {
 
 	args = append(args, image)
 	cmd := exec.Command(runtime, args...)
-	cmd.Stderr = os.Stderr
+	if verbose {
+		cmd.Stderr = os.Stderr
+	}
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -168,7 +171,6 @@ func handleAgent(msg map[string]interface{}) {
 			continue
 		}
 		if strings.TrimSpace(line) == outputEndSentinel {
-			inOutput = false
 			// Parse the output JSON
 			raw := strings.Join(outputLines, "\n")
 			var result map[string]interface{}
@@ -244,7 +246,7 @@ func handleAgent(msg map[string]interface{}) {
 // Sets up a temp workspace dir with symlinks mirroring the container layout,
 // injects secrets as env vars, and passes NANOCLAW_WORKSPACE_ROOT so the
 // agent-runner finds group/project/extra at the right paths.
-func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt string, secrets map[string]string) {
+func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt string, secrets map[string]string, verbose bool) {
 	// Locate node
 	node, err := exec.LookPath("node")
 	if err != nil {
@@ -341,7 +343,9 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 
 	cmd := exec.Command(node, distIndex)
 	cmd.Env = env
-	cmd.Stderr = os.Stderr
+	if verbose {
+		cmd.Stderr = os.Stderr
+	}
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -378,7 +382,6 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 			continue
 		}
 		if strings.TrimSpace(line) == outputEndSentinel {
-			inOutput = false
 			raw := strings.Join(outputLines, "\n")
 			var result map[string]interface{}
 			if err := json.Unmarshal([]byte(raw), &result); err != nil {

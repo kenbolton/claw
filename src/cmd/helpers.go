@@ -8,10 +8,3 @@ import (
 func locateDriver(arch string, sourceDir ...string) (*driver.Driver, error) {
 	return driver.Locate(arch, sourceDir...)
 }
-
-func detectOrFlagArch(sourceDir string) (string, error) {
-	if flagArch != "" {
-		return flagArch, nil
-	}
-	return driver.DetectArch(sourceDir)
-}

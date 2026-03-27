@@ -12,12 +12,13 @@ import (
 )
 
 var (
-	flagGroup     string
-	flagJID       string
-	flagSession   string
-	flagFile      string
-	flagPipe      bool
-	flagNative    bool
+	flagGroup   string
+	flagJID     string
+	flagSession string
+	flagFile    string
+	flagPipe    bool
+	flagNative  bool
+	flagVerbose bool
 )
 
 var agentCmd = &cobra.Command{
@@ -45,6 +46,7 @@ func init() {
 	agentCmd.Flags().StringVarP(&flagFile, "file", "f", "", "Read prompt from a file")
 	agentCmd.Flags().BoolVarP(&flagPipe, "pipe", "p", false, "Read prompt from stdin")
 	agentCmd.Flags().BoolVar(&flagNative, "native", false, "Run agent natively without a container (dev mode, no sandbox)")
+	agentCmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Show agent-runner diagnostic output")
 
 	_ = agentCmd.RegisterFlagCompletionFunc("group", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -80,6 +82,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		"session_id": flagSession,
 		"resume_at":  "",
 		"native":     flagNative,
+		"verbose":    flagVerbose,
 	}
 
 	scanner, wait, err := d.SendRequestAndClose(req)
@@ -107,7 +110,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 			status, _ := msg["status"].(string)
 			sessionID, _ := msg["session_id"].(string)
 			if sessionID != "" {
-				fmt.Fprintf(cmd.ErrOrStderr(), "\n[session: %s]\n", sessionID)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\n[session: %s]\n", sessionID)
 			}
 			if status != "success" && status != "" {
 				message, _ := msg["message"].(string)

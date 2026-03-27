@@ -245,39 +245,6 @@ func readNewMessages(sourceDir, chatJID, afterTimestamp string) ([]MessageRow, e
 	return msgs, rows.Err()
 }
 
-// readSecretKeys returns known secret key names from .env (keys only, no values).
-func readSecretKeys(sourceDir string) []string {
-	known := []string{
-		"ANTHROPIC_API_KEY",
-		"CLAUDE_CODE_OAUTH_TOKEN",
-		"ANTHROPIC_BASE_URL",
-		"ANTHROPIC_AUTH_TOKEN",
-		"OLLAMA_HOST",
-		"GITHUB_TOKEN",
-		"SIGNAL_ACCOUNT",
-		"SIGNAL_SOCKET_PATH",
-	}
-
-	envPath := filepath.Join(sourceDir, ".env")
-	data, err := os.ReadFile(envPath)
-	if err != nil {
-		return known
-	}
-
-	var present []string
-	for _, line := range strings.Split(string(data), "\n") {
-		for _, k := range known {
-			if len(line) > len(k)+1 && line[:len(k)] == k && line[len(k)] == '=' {
-				present = append(present, k)
-			}
-		}
-	}
-	if len(present) == 0 {
-		return known
-	}
-	return present
-}
-
 // readSecrets reads secret key-value pairs from .env.
 func readSecrets(sourceDir string) map[string]string {
 	secretKeys := []string{
