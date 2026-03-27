@@ -136,12 +136,22 @@ type agentResponse struct {
 }
 
 type agentResult struct {
-	// Success fields
+	// Success fields (flat format)
 	Content *string     `json:"content,omitempty"`
 	Session interface{} `json:"session,omitempty"`
-	// Error fields
+	// Error fields (flat format)
 	Message *string `json:"message,omitempty"`
 	Code    *string `json:"code,omitempty"`
+	// Rust enum-style wrapper: {"Ok": {...}} or {"Error": {...}}
+	Ok    *agentResultInner `json:"Ok,omitempty"`
+	Error *agentResultInner `json:"Error,omitempty"`
+}
+
+type agentResultInner struct {
+	Content *string     `json:"content,omitempty"`
+	Session interface{} `json:"session,omitempty"`
+	Message *string     `json:"message,omitempty"`
+	Code    *string     `json:"code,omitempty"`
 }
 
 type usageSnap struct {
@@ -167,6 +177,24 @@ func emitAgentResponse(raw, sessionID string) {
 			"status": "success",
 		})
 		return
+	}
+
+	// Unwrap Rust enum-style result: {"Ok": {...}} or {"Error": {...}}
+	if resp.Result.Ok != nil {
+		if resp.Result.Content == nil {
+			resp.Result.Content = resp.Result.Ok.Content
+		}
+		if resp.Result.Session == nil {
+			resp.Result.Session = resp.Result.Ok.Session
+		}
+	}
+	if resp.Result.Error != nil {
+		if resp.Result.Message == nil {
+			resp.Result.Message = resp.Result.Error.Message
+		}
+		if resp.Result.Code == nil {
+			resp.Result.Code = resp.Result.Error.Code
+		}
 	}
 
 	// Check result type via presence of fields

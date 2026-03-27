@@ -130,6 +130,40 @@ func TestEmitAgentResponse(t *testing.T) {
 		}
 	})
 
+	t.Run("Rust Ok enum variant", func(t *testing.T) {
+		raw := `{"request_id":"req-ok","result":{"Ok":{"content":"wrapped content","session":"cli:wrapped"}},"usage":{"input_tokens":20,"output_tokens":10,"tool_calls":0,"errors":0}}`
+		lines := captureEmitAgentResponse(t, raw, "")
+		if len(lines) < 2 {
+			t.Fatalf("expected at least 2 lines, got %d", len(lines))
+		}
+		if lines[0]["text"] != "wrapped content" {
+			t.Errorf("expected 'wrapped content', got %q", lines[0]["text"])
+		}
+		if lines[1]["status"] != "success" {
+			t.Errorf("expected status=success")
+		}
+		if lines[1]["session_id"] != "cli:wrapped" {
+			t.Errorf("expected session_id='cli:wrapped', got %q", lines[1]["session_id"])
+		}
+	})
+
+	t.Run("Rust Error enum variant", func(t *testing.T) {
+		raw := `{"request_id":"req-err","result":{"Error":{"message":"Provider error: invalid_request_error","code":"PROCESS_ERROR"}},"usage":{"input_tokens":0,"output_tokens":0,"tool_calls":0,"errors":0}}`
+		lines := captureEmitAgentResponse(t, raw, "")
+		if len(lines) < 2 {
+			t.Fatalf("expected at least 2 lines, got %d", len(lines))
+		}
+		if lines[0]["type"] != "error" {
+			t.Errorf("expected type=error, got %q", lines[0]["type"])
+		}
+		if lines[0]["code"] != "PROCESS_ERROR" {
+			t.Errorf("expected code=PROCESS_ERROR, got %q", lines[0]["code"])
+		}
+		if lines[1]["status"] != "error" {
+			t.Errorf("expected status=error")
+		}
+	})
+
 	t.Run("session ID passthrough", func(t *testing.T) {
 		raw := `{"request_id":"req-6","result":{"content":"ok"}}`
 		lines := captureEmitAgentResponse(t, raw, "cli:session-abc")
