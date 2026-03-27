@@ -33,6 +33,11 @@ func handlePs(sourceDir string) {
 	}
 
 	for _, c := range containers {
+		// Filter out ephemeral agent containers (no nanoclaw- prefix = unnamed/UUID)
+		if !strings.HasPrefix(c.id, "nanoclaw-") {
+			continue
+		}
+
 		instance := map[string]interface{}{
 			"type":  "instance",
 			"id":    c.id,
@@ -41,16 +46,19 @@ func handlePs(sourceDir string) {
 			"age":   c.age,
 		}
 
-		// Try to match container name to a group folder: nanoclaw-<folder>
-		folder := strings.TrimPrefix(c.id, "nanoclaw-")
-		if g, ok := groupByFolder[folder]; ok {
+		// Match container name to a group folder.
+		// Container names are nanoclaw-<folder> or nanoclaw-<folder>-<suffix>
+		// (e.g. nanoclaw-main-signal-1774566548315 → folder "main-signal").
+		// Try longest-prefix match against known group folders.
+		remainder := strings.TrimPrefix(c.id, "nanoclaw-")
+		if g := matchGroupByPrefix(remainder, groupByFolder); g != nil {
 			instance["group"] = g.Name
 			instance["folder"] = g.Folder
 			instance["jid"] = g.JID
 			instance["is_main"] = g.IsMain
 		} else {
-			instance["group"] = folder
-			instance["folder"] = folder
+			instance["group"] = remainder
+			instance["folder"] = remainder
 		}
 
 		write(instance)
@@ -158,6 +166,28 @@ func fetchDockerContainers() []containerInfo {
 		containers = append(containers, containerInfo{id: cid, state: state, age: age})
 	}
 	return containers
+}
+
+// matchGroupByPrefix finds the group whose folder is the longest prefix of remainder.
+// Handles nanoclaw-<folder>-<timestamp> style container names.
+func matchGroupByPrefix(remainder string, groupByFolder map[string]*GroupRow) *GroupRow {
+	// Exact match first
+	if g, ok := groupByFolder[remainder]; ok {
+		return g
+	}
+	// Longest prefix match: folder must be followed by '-' or end of string
+	var best *GroupRow
+	bestLen := 0
+	for folder, g := range groupByFolder {
+		if len(folder) <= bestLen {
+			continue
+		}
+		if strings.HasPrefix(remainder, folder) && len(remainder) > len(folder) && remainder[len(folder)] == '-' {
+			best = g
+			bestLen = len(folder)
+		}
+	}
+	return best
 }
 
 func humanAge(secs int64) string {
