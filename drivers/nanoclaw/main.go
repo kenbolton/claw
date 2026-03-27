@@ -43,6 +43,8 @@ func main() {
 			handleAgent(msg)
 		case "watch_request":
 			handleWatch(msg)
+		case "health_request":
+			handleHealth(msg)
 		default:
 			writeError("UNKNOWN_TYPE", fmt.Sprintf("unknown message type: %q", msgType))
 		}

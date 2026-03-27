@@ -113,6 +113,34 @@ Driver emits historical messages then polls for new ones:
 
 The driver exits when the orchestrator closes stdin.
 
+### health_request
+
+Run health diagnostics against an installation.
+
+```json
+{
+  "type": "health_request",
+  "source_dir": "/path/to/install",
+  "group": "",
+  "checks": ["runtime", "credentials", "database", "disk", "sessions", "groups", "image"]
+}
+```
+
+- `group` — if non-empty, scope group-level checks to this group only
+- `checks` — list of checks to run; omit or send `[]` for all
+
+Driver emits one `check_result` per check, then a completion:
+
+```json
+{"type": "check_result", "name": "runtime", "status": "pass", "detail": "docker 27.3.1"}
+{"type": "check_result", "name": "disk", "status": "fail", "detail": "group dir 94% full", "remediation": "Free up space or move groups to a larger volume"}
+{"type": "health_complete", "pass": 5, "warn": 1, "fail": 1}
+```
+
+Status values: `pass`, `warn`, `fail`. Optional `remediation` field provides a suggested fix.
+
+Drivers that don't implement health checks return `{"type": "error", "code": "UNSUPPORTED"}`.
+
 ### error
 
 Any request can result in an error:
@@ -134,6 +162,8 @@ Any request can result in an error:
 | `DB_ERROR` | Database read error |
 | `NATIVE_NO_NODE` | `--native` requested but `node` not found in PATH |
 | `NATIVE_NO_DIST` | `--native` requested but agent-runner dist not built |
+| `UNSUPPORTED` | Driver does not implement the requested message type |
+| `CHECK_ERROR` | A health check could not be run (distinct from a failed check) |
 
 ## Lifecycle
 

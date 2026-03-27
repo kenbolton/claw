@@ -93,7 +93,7 @@ type sessionEntry struct {
 
 // sessionMessage matches the JSON structure inside ZeptoClaw session files.
 type sessionMessage struct {
-	Role    string `json:"role"`    // "user" | "assistant" | "system" | "tool"
+	Role    string `json:"role"` // "user" | "assistant" | "system" | "tool"
 	Content string `json:"content"`
 }
 

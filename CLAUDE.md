@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+You are a software engineer building `claw` and `molt` and other claw agent operators. You always write sufficient tests to thoroughly exercise all code paths before, update documentation in all places, and lint code before commiting.
 
 ## What this is
 
@@ -56,7 +56,7 @@ claw <command> → driver.go locates claw-driver-<arch>
 
 **Key packages:**
 - `driver/` — driver discovery (`FindAll`, `Locate`), version probe, NDJSON protocol methods
-- `src/cmd/` — Cobra commands (`repl`, `agent`, `ps`, `watch`, `archs`, `completion`)
+- `src/cmd/` — Cobra commands (`repl`, `agent`, `ps`, `watch`, `health`, `archs`, `completion`)
 - `drivers/nanoclaw/` — standalone NanoClaw driver binary (separate Go module)
 - `drivers/zepto/` — standalone ZeptoClaw driver binary (separate Go module)
 
@@ -68,6 +68,7 @@ Drivers communicate via newline-delimited JSON on stdin/stdout. Request types:
 - `ps_request` → streams `instance` messages, then `ps_complete`
 - `agent_request` → streams `agent_output` chunks, then `agent_complete`
 - `watch_request` → streams `message` rows continuously until stdin closes
+- `health_request` → streams `check_result` messages, then `health_complete`
 
 See `spec/DRIVER.md` for the full protocol spec.
 
@@ -77,6 +78,7 @@ See `spec/DRIVER.md` for the full protocol spec.
 - `ps.go` — queries container runtime (Docker or Apple Containers) + joins with SQLite `registered_groups`; longest-prefix match handles `nanoclaw-<folder>-<timestamp>` style container names
 - `agent.go` — resolves group, reads secrets from `.env`, spawns `nanoclaw-agent` container with structured mounts (`/workspace/group`, `/workspace/project`, `/home/node/.claude`), streams output through NDJSON. `--native` bypasses the container and runs the agent-runner via Node.js directly; `--verbose` pipes agent-runner stderr to the terminal.
 - `watch.go` — emits historical messages then polls SQLite for new rows; exits on stdin close
+- `health.go` — runs 7 health checks (runtime, credentials, database, disk, sessions, groups, image) using existing helpers; streams `check_result` messages
 
 Source-dir detection: `NANOCLAW_DIR` env var → walk up from binary → `~/src/nanoclaw`.
 
@@ -86,6 +88,7 @@ Source-dir detection: `NANOCLAW_DIR` env var → walk up from binary → `~/src/
 - `agent.go` — sends requests to `zeptoclaw agent-stdin` using the gateway IPC format; threads session keys for REPL continuity
 - `ps.go` — checks both native `zeptoclaw gateway/daemon` processes and `zeptoclaw-*` containers
 - `watch.go` — polls `~/.zeptoclaw/sessions/` for CLI session messages (500ms interval)
+- `health.go` — runs applicable health checks (runtime, credentials, disk, sessions); database/groups/image return "not applicable"
 
 ## Relationship to other projects
 

@@ -14,6 +14,7 @@
 claw agent -g main "What is 2+2?"
 claw ps
 claw watch -g main
+claw health
 ```
 
 ## The problem
@@ -53,6 +54,22 @@ $ claw watch -g main -n 3
 Watching (Ctrl-C to stop)...
 ```
 
+Checking installation health:
+
+```
+$ claw health
+nanoclaw  /Users/you/.claw/drivers/claw-driver-nanoclaw
+  ✓  runtime          docker 27.3.1
+  ✓  credentials      CLAUDE_CODE_OAUTH_TOKEN valid (expires in 47d)
+  ✓  database          ok (messages.db 142MB, 18,432 rows)
+  ✗  disk              group dir 94% full (/Users/you/src/nanoclaw/groups)
+  ✓  sessions          3 active, 0 stuck
+  ✓  groups            4 registered (main, dev, family, work)
+  ⚠  image             nanoclaw-agent:latest is 3 versions behind
+
+Overall: WARN  (1 error, 1 warning)
+```
+
 Without `--arch`, commands like `ps` query all installed drivers and merge the results into a single table with an ARCH column.
 
 ## Commands
@@ -79,6 +96,17 @@ claw agent [prompt]             Send a single prompt to an agent
 claw ps                         List running agent instances
   --arch <name>                 Query only this architecture
   --json                        Output raw JSON
+
+claw health                     Run health diagnostics on installations
+  --arch <name>                 Check a specific architecture
+  --all                         Check all installations from all installed drivers
+  -g, --group <name>            Check a specific group within an installation
+  --watch                       Re-run every --interval seconds
+  --interval <seconds>          Polling interval in seconds (default: 30)
+  --json                        Emit NDJSON instead of formatted output
+  --fail-fast                   Exit 1 on first failed check
+  Checks: runtime, credentials, database, disk, sessions, groups, image.
+  Exit codes: 0=pass, 1=fail, 2=warn, 3=cannot run.
 
 claw watch                      Stream messages in real time
   -g, --group <name>            Group name or folder (fuzzy match)
@@ -123,7 +151,7 @@ claw-driver-pico       # ships with PicoClaw     planned
 
 ### Writing a new driver
 
-A driver is any executable named `claw-driver-<arch>` that reads NDJSON from stdin and writes NDJSON to stdout. It must handle `version_request` and `probe_request` at minimum; add `ps_request`, `agent_request`, and `watch_request` to support the full command set.
+A driver is any executable named `claw-driver-<arch>` that reads NDJSON from stdin and writes NDJSON to stdout. It must handle `version_request` and `probe_request` at minimum; add `ps_request`, `agent_request`, `watch_request`, and `health_request` to support the full command set.
 
 Create a `drivers/<arch>/` directory with its own `go.mod` (or use any language — drivers are just binaries). See [spec/DRIVER.md](spec/DRIVER.md) for the full protocol.
 

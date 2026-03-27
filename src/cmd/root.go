@@ -26,6 +26,7 @@ Examples:
   claw agent -g dev "Review this code"
   claw ps
   claw watch -g main
+  claw health
   claw archs`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()

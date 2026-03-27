@@ -11,29 +11,12 @@ one or many machines.
 | Tool | Status | Purpose |
 |------|--------|---------|
 | `claw` | v0.1 | Unified CLI — run agents, watch conversations, inspect instances |
+| `claw health` | v0.1 | Diagnostic health checks across installations |
 | `molt` | v0.1 | Migration — export/import groups, memory, skills between architectures |
 
 ---
 
 ## Planned tools
-
-### `claw health`
-
-Diagnostic health checks across installations.
-
-- Credential validity (API key / OAuth token expiry)
-- Container / runtime reachability
-- DB integrity check
-- Stuck/zombie session detection
-- Disk space on group dirs and session dirs
-- Traffic-light output: green / yellow / red per installation
-- `--watch` mode for continuous monitoring
-- Emits structured JSON for piping into alerting
-
-**Why first:** everything else depends on knowing your installations are healthy.
-This pays for itself immediately.
-
----
 
 ### `claw upgrade`
 
@@ -142,7 +125,7 @@ don't implement yet.
 
 ## Rough sequence
 
-1. `claw health` — immediate operational value, informs everything else
+1. ~~`claw health`~~ — done
 2. `molt sync` — production safety net before pushing upgrades
 3. `claw secrets` — operational pain point once you have 3+ installations
 4. `claw upgrade` — depends on health + secrets being solid first
