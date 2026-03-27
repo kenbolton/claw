@@ -3,7 +3,7 @@ SRC_DIR  := ./src
 BUILD_DIR := ./build
 PREFIX   := $(HOME)/.local
 
-.PHONY: all build build-drivers build-all clean test lint fmt install install-drivers install-all completions install-completions
+.PHONY: all build build-drivers build-all clean test lint fmt install install-drivers install-all completions install-completions install-hooks
 
 all: build
 
@@ -69,6 +69,11 @@ install-completions: build
 	$(BUILD_DIR)/$(BINARY) completion bash --install
 	$(BUILD_DIR)/$(BINARY) completion zsh  --install
 	$(BUILD_DIR)/$(BINARY) completion fish --install
+
+install-hooks:
+	cp .githooks/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "Installed .githooks/pre-commit"
 
 clean:
 	rm -rf $(BUILD_DIR)
