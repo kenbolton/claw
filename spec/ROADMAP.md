@@ -85,6 +85,33 @@ Continuous incremental backup (extends `molt`).
 
 ---
 
+### `claw api`
+
+HTTP + WebSocket server exposing the driver protocol over the network.
+Thin translation layer — no business logic, just NDJSON-over-subprocess
+becomes JSON-over-HTTP/WS.
+
+- `claw api serve [--port 7474] [--bind 127.0.0.1]`
+- REST endpoints for static data: health, ps, groups
+- WebSocket endpoints for streams: watch, agent output
+- Localhost-only by default; `--bind 0.0.0.0 --token <secret>` for remote
+- Powers `claw-console` (the dashboard)
+
+---
+
+### `claw-console`
+
+Web dashboard for claw operators. Separate repo, talks to `claw api`.
+
+- Health tile per installation — live check status
+- PS table — running agents across all architectures, live state
+- Watch pane — real-time message stream per group
+- REPL — browser-based agent interface
+- Session browser — searchable conversation history
+- Group config viewer
+
+---
+
 ### `claw bench`
 
 Regression testing and evaluation across installations.
@@ -119,5 +146,6 @@ don't implement yet.
 2. `molt sync` — production safety net before pushing upgrades
 3. `claw secrets` — operational pain point once you have 3+ installations
 4. `claw upgrade` — depends on health + secrets being solid first
-5. `claw skill` — nice to have, lower urgency
-6. `claw bench` — longer tail, needs baseline data to be useful
+5. `claw api` + `claw-console` — visibility layer, most impactful after health
+6. `claw skill` — nice to have, lower urgency
+7. `claw bench` — longer tail, needs baseline data to be useful
