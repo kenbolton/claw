@@ -56,7 +56,8 @@ claw <command> → driver.go locates claw-driver-<arch>
 
 **Key packages:**
 - `driver/` — driver discovery (`FindAll`, `Locate`), version probe, NDJSON protocol methods
-- `src/cmd/` — Cobra commands (`repl`, `agent`, `ps`, `watch`, `health`, `archs`, `completion`)
+- `api/` — HTTP+WebSocket API server (`claw api serve`), translates driver NDJSON to HTTP/WS for `claw-console`
+- `src/cmd/` — Cobra commands (`repl`, `agent`, `ps`, `watch`, `health`, `archs`, `api`, `completion`)
 - `drivers/nanoclaw/` — standalone NanoClaw driver binary (separate Go module)
 - `drivers/zepto/` — standalone ZeptoClaw driver binary (separate Go module)
 
@@ -69,6 +70,8 @@ Drivers communicate via newline-delimited JSON on stdin/stdout. Request types:
 - `agent_request` → streams `agent_output` chunks, then `agent_complete`
 - `watch_request` → streams `message` rows continuously until stdin closes
 - `health_request` → streams `check_result` messages, then `health_complete`
+- `groups_request` → streams `group` messages, then `groups_complete`
+- `sessions_request` → streams `session` messages, then `sessions_complete`
 
 See `spec/DRIVER.md` for the full protocol spec.
 

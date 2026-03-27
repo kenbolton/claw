@@ -45,6 +45,10 @@ func main() {
 			handleWatch(msg)
 		case "health_request":
 			handleHealth(msg)
+		case "groups_request":
+			handleGroups(msg)
+		case "sessions_request":
+			handleSessions(msg)
 		default:
 			writeError("UNKNOWN_TYPE", fmt.Sprintf("unknown message type: %q", msgType))
 		}

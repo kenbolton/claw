@@ -141,6 +141,41 @@ Status values: `pass`, `warn`, `fail`. Optional `remediation` field provides a s
 
 Drivers that don't implement health checks return `{"type": "error", "code": "UNSUPPORTED"}`.
 
+### groups_request
+
+List registered groups for an installation.
+
+```json
+{"type": "groups_request", "source_dir": "/path/to/install"}
+```
+
+Driver emits zero or more group messages, then a completion:
+
+```json
+{"type": "group", "source_dir": "/path/to/install", "jid": "...", "name": "main", "folder": "main", "trigger": "@Andy", "is_main": true, "requires_trigger": false}
+{"type": "groups_complete"}
+```
+
+Drivers that don't support groups return `{"type": "error", "code": "UNSUPPORTED"}`.
+
+### sessions_request
+
+List recent sessions for a group.
+
+```json
+{"type": "sessions_request", "source_dir": "/path/to/install", "group": "main", "limit": 50}
+```
+
+- `group` — group name (fuzzy match) or JID
+- `limit` — max sessions to return (default: 50)
+
+Driver emits zero or more session messages, then a completion:
+
+```json
+{"type": "session", "session_id": "abc123", "group": "main", "started_at": "2026-03-27T09:00:00Z", "last_active": "2026-03-27T09:45:00Z", "message_count": 12, "summary": "Reviewed deploy config"}
+{"type": "sessions_complete"}
+```
+
 ### error
 
 Any request can result in an error:
