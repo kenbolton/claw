@@ -17,6 +17,7 @@ var (
 	flagSession   string
 	flagFile      string
 	flagPipe      bool
+	flagNative    bool
 )
 
 var agentCmd = &cobra.Command{
