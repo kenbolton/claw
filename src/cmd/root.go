@@ -11,7 +11,12 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "claw",
 	Short: "Universal CLI for claw agent architectures",
-	Long: `claw — universal CLI orchestrator for claw agent architectures.
+	Long: `
+   _       /|
+  | \_____/ |   claw
+  |  _____> █   Universal CLI orchestrator for claw agent architectures
+  |_/     \ |
+           \|
 
 Manage agents, watch conversations, and inspect running instances
 across NanoClaw, OpenClaw, ZeptoClaw, PicoClaw, and others.
