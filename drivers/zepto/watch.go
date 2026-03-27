@@ -55,7 +55,7 @@ func handleWatch(msg map[string]interface{}) {
 	if len(entries) > 0 {
 		lastTS = entries[len(entries)-1].timestamp
 	} else {
-		lastTS = time.Now().UTC().Format(time.RFC3339)
+		lastTS = time.Now().UTC().Format(time.RFC3339Nano)
 	}
 
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -144,11 +144,11 @@ func readRecentSessions(sessionsDir string, limit int) ([]sessionEntry, error) {
 			continue
 		}
 
-		ts := sess.UpdatedAt
-		if ts == "" {
-			info, _ := os.Stat(f.path)
-			ts = info.ModTime().UTC().Format(time.RFC3339)
-		}
+		// Use file mod time for timestamps — this must be consistent with
+		// readSessionsSince which also uses mod time, so that lastTS from
+		// initial load properly gates the polling loop.
+		info2, _ := os.Stat(f.path)
+		ts := info2.ModTime().UTC().Format(time.RFC3339Nano)
 
 		for _, m := range sess.Messages {
 			if m.Role == "system" || m.Role == "tool" {
@@ -181,9 +181,13 @@ func readRecentSessions(sessionsDir string, limit int) ([]sessionEntry, error) {
 
 // readSessionsSince returns session entries newer than afterTS.
 func readSessionsSince(sessionsDir, afterTS string) ([]sessionEntry, error) {
-	after, err := time.Parse(time.RFC3339, afterTS)
+	after, err := time.Parse(time.RFC3339Nano, afterTS)
 	if err != nil {
-		return nil, fmt.Errorf("invalid timestamp: %v", err)
+		// Fall back to RFC3339 (no fractional seconds)
+		after, err = time.Parse(time.RFC3339, afterTS)
+		if err != nil {
+			return nil, fmt.Errorf("invalid timestamp: %v", err)
+		}
 	}
 
 	files, err := filepath.Glob(filepath.Join(sessionsDir, "*.json"))
@@ -208,7 +212,7 @@ func readSessionsSince(sessionsDir, afterTS string) ([]sessionEntry, error) {
 		if !strings.HasPrefix(sess.Key, "cli:") {
 			continue
 		}
-		ts := info.ModTime().UTC().Format(time.RFC3339)
+		ts := info.ModTime().UTC().Format(time.RFC3339Nano)
 		for _, m := range sess.Messages {
 			if m.Role == "system" || m.Role == "tool" {
 				continue
