@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,12 +22,7 @@ func handleLogs(msg map[string]interface{}) {
 		return
 	}
 
-	groups, err := readGroupRows(sourceDir)
-	if err != nil {
-		writeError("DB_ERROR", err.Error())
-		return
-	}
-	group, err := findGroup(groups, groupName)
+	group, _, err := resolveGroup(sourceDir, groupName, "")
 	if err != nil {
 		writeError("GROUP_NOT_FOUND", err.Error())
 		return
@@ -48,7 +44,7 @@ func handleLogs(msg map[string]interface{}) {
 	// Tail container logs (stderr)
 	var cmd *exec.Cmd
 	if runtime == "container" {
-		cmd = exec.Command("container", "logs", "--follow", containerName)
+		cmd = exec.Command("container", "logs", "--follow", "-n", "100", containerName)
 	} else {
 		cmd = exec.Command("docker", "logs", "-f", "--tail", "100", containerName)
 	}
@@ -120,13 +116,58 @@ func handleLogs(msg map[string]interface{}) {
 
 // findGroupContainer returns the container name/ID for a group, or "" if not running.
 func findGroupContainer(runtime, folder string) string {
+	if runtime == "container" {
+		return findAppleContainer(folder)
+	}
+
+	// Docker: match by container name prefix
 	containers := fetchContainers(runtime)
 	prefix := "nanoclaw-" + folder
-
-	// Try exact prefix match (nanoclaw-<folder>-<timestamp>)
 	for _, c := range containers {
 		if c.id == prefix || strings.HasPrefix(c.id, prefix+"-") {
 			return c.id
+		}
+	}
+	return ""
+}
+
+// findAppleContainer matches a group folder to a running Apple Container
+// by inspecting mount paths (groups/<folder> → /workspace/group).
+func findAppleContainer(folder string) string {
+	out, err := exec.Command("container", "list", "--format", "json").Output()
+	if err != nil {
+		return ""
+	}
+
+	var containers []struct {
+		Configuration struct {
+			ID    string `json:"id"`
+			Image struct {
+				Reference string `json:"reference"`
+			} `json:"image"`
+			Mounts []struct {
+				Source      string `json:"source"`
+				Destination string `json:"destination"`
+			} `json:"mounts"`
+		} `json:"configuration"`
+		Status string `json:"status"`
+	}
+	if json.Unmarshal(out, &containers) != nil {
+		return ""
+	}
+
+	suffix := "/groups/" + folder
+	for _, c := range containers {
+		if c.Status != "running" {
+			continue
+		}
+		if !strings.Contains(c.Configuration.Image.Reference, "nanoclaw-agent") {
+			continue
+		}
+		for _, m := range c.Configuration.Mounts {
+			if m.Destination == "/workspace/group" && strings.HasSuffix(m.Source, suffix) {
+				return c.Configuration.ID
+			}
 		}
 	}
 	return ""
