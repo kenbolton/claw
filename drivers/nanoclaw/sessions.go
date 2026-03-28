@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -45,13 +44,20 @@ func handleSessions(msg map[string]interface{}) {
 		return
 	}
 
+	// Merge Claude session UUIDs from JSONL files into day-based sessions.
+	// Match by date — if a JSONL session was last modified on the same day,
+	// use its UUID as the session_id and mark resumable.
+	claudeByDate := findClaudeSessionsByDate(sourceDir, group.Folder)
 	for _, s := range sessions {
-		write(s)
-	}
-
-	// Also emit Claude session UUIDs from JSONL files
-	claudeSessions := findClaudeSessions(sourceDir, group.Folder, limit)
-	for _, s := range claudeSessions {
+		day := ""
+		if sa, ok := s["started_at"].(string); ok && len(sa) >= 10 {
+			day = sa[:10]
+		}
+		if cs, ok := claudeByDate[day]; ok {
+			s["session_id"] = cs.uuid
+			s["resumable"] = true
+			delete(claudeByDate, day)
+		}
 		write(s)
 	}
 
@@ -169,54 +175,37 @@ func querySessions(db *sql.DB, chatJID, groupName string, limit int) ([]map[stri
 	return result, nil
 }
 
-// findClaudeSessions reads JSONL session files and returns session metadata
-// with real Claude session UUIDs that can be used to resume.
-func findClaudeSessions(sourceDir, folder string, limit int) []map[string]interface{} {
+type claudeSession struct {
+	uuid    string
+	modTime int64
+	size    int64
+}
+
+// findClaudeSessionsByDate reads JSONL session files and returns a map
+// keyed by date (YYYY-MM-DD) to the most recent session modified that day.
+// This allows merging with day-based DB sessions.
+func findClaudeSessionsByDate(sourceDir, folder string) map[string]claudeSession {
 	projectsDir := filepath.Join(sourceDir, "data", "sessions", folder, ".claude", "projects")
+	result := map[string]claudeSession{}
 
-	type sessionFile struct {
-		uuid    string
-		path    string
-		modTime int64
-		size    int64
-	}
-
-	var files []sessionFile
 	_ = filepath.Walk(projectsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".jsonl") {
 			return nil
 		}
-		name := strings.TrimSuffix(info.Name(), ".jsonl")
-		files = append(files, sessionFile{
-			uuid:    name,
-			path:    path,
-			modTime: info.ModTime().Unix(),
-			size:    info.Size(),
-		})
+		uuid := strings.TrimSuffix(info.Name(), ".jsonl")
+		modTime := info.ModTime().Unix()
+		day := info.ModTime().UTC().Format("2006-01-02")
+
+		// Keep the most recently modified session per day
+		if existing, ok := result[day]; !ok || modTime > existing.modTime {
+			result[day] = claudeSession{
+				uuid:    uuid,
+				modTime: modTime,
+				size:    info.Size(),
+			}
+		}
 		return nil
 	})
 
-	// Sort by modification time, newest first
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].modTime > files[j].modTime
-	})
-
-	if limit > 0 && len(files) > limit {
-		files = files[:limit]
-	}
-
-	var result []map[string]interface{}
-	for _, f := range files {
-		result = append(result, map[string]interface{}{
-			"type":          "session",
-			"session_id":    f.uuid,
-			"group":         folder,
-			"started_at":    "",
-			"last_active":   fmt.Sprintf("%d", f.modTime),
-			"message_count": 0,
-			"summary":       fmt.Sprintf("Claude session %s (%d KB)", f.uuid[:8], f.size/1024),
-			"resumable":     true,
-		})
-	}
 	return result
 }
