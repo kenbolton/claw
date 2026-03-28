@@ -62,6 +62,7 @@ claw api serve → starts HTTP+WebSocket server on localhost:7474
   WS /ws/watch/main   → spawns driver with watch_request → streams NDJSON as WS messages
   WS /ws/agent/main   → reads prompt from WS → spawns driver → streams response → loops for multi-turn
   WS /ws/logs/main    → spawns driver with logs_request → streams container stdout/stderr
+  GET /api/v1/usage   → fans out usage_request to all drivers → merges token usage rows + cost estimates
 ```
 
 **Key packages:**
@@ -84,6 +85,7 @@ Drivers communicate via newline-delimited JSON on stdin/stdout. Request types:
 - `groups_request` → streams `group` messages, then `groups_complete`
 - `sessions_request` → streams `session` messages (with optional `resumable` flag), then `sessions_complete`
 - `logs_request` → streams `log_line` messages (container stdout/stderr) until stdin closes
+- `usage_request` → streams `usage_row` messages (token counts per run), then `usage_complete`
 
 See `spec/DRIVER.md` for the full protocol spec.
 
@@ -97,6 +99,7 @@ See `spec/DRIVER.md` for the full protocol spec.
 - `groups.go` — lists registered groups from SQLite via `readGroupRows()`; streams `group` messages
 - `sessions.go` — derives sessions from messages table grouped by day, then merges Claude session UUIDs from JSONL files (`data/sessions/<folder>/.claude/projects/*/*.jsonl`). Matched sessions get the UUID as `session_id` and `resumable: true`. One entry per day — no duplicates.
 - `logs.go` — streams container stdout/stderr for a group. Resolves group to the most recently started container (Apple Containers matches by `/workspace/group` mount path; Docker matches by `nanoclaw-<folder>` name prefix). Tails last 100 lines then follows.
+- `usage.go` — queries `run_usage` table from SQLite; streams `usage_row` messages with token counts per run, then `usage_complete`. Gracefully handles missing table on older databases.
 
 Source-dir detection: `NANOCLAW_DIR` env var → walk up from binary → `~/src/nanoclaw`.
 

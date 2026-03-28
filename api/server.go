@@ -32,6 +32,7 @@ func (s *Server) NewServeMux() http.Handler {
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
 	mux.HandleFunc("GET /api/v1/groups", s.handleGroups)
 	mux.HandleFunc("GET /api/v1/sessions", s.handleSessions)
+	mux.HandleFunc("GET /api/v1/usage", s.handleUsage)
 
 	// WebSocket endpoints
 	mux.HandleFunc("GET /ws/watch/{group}", s.handleWatchWS)

@@ -202,15 +202,22 @@ func handleAgent(msg map[string]interface{}) {
 					})
 				}
 
+				// Extract token usage from the sentinel JSON. Field names are camelCase
+				// (matching the agent-runner ContainerOutput interface) and converted to
+				// snake_case in the NDJSON output (matching the driver protocol spec).
 				inputTokens, _ := result["inputTokens"].(float64)
 				outputTokens, _ := result["outputTokens"].(float64)
+				cacheReadInputTokens, _ := result["cacheReadInputTokens"].(float64)
+				cacheCreationInputTokens, _ := result["cacheCreationInputTokens"].(float64)
 
 				write(map[string]interface{}{
-					"type":          "agent_complete",
-					"session_id":    newSessionID,
-					"status":        status,
-					"input_tokens":  int(inputTokens),
-					"output_tokens": int(outputTokens),
+					"type":                        "agent_complete",
+					"session_id":                  newSessionID,
+					"status":                      status,
+					"input_tokens":                int(inputTokens),
+					"output_tokens":               int(outputTokens),
+					"cache_read_input_tokens":     int(cacheReadInputTokens),
+					"cache_creation_input_tokens": int(cacheCreationInputTokens),
 				})
 			}
 

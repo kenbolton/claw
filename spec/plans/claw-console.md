@@ -1,5 +1,11 @@
 # Plan: claw-console
 
+> ~~SHIPPED 2026-03-28~~ — all three phases live in `extra/src/claw-console/`
+> Built dist embedded in `claw/console/` via `//go:embed dist/*`
+>
+> **Remaining:** `jid.ts` + `TransportBadge` not yet in source — `GroupCard`
+> renders raw JID string. Low priority follow-up.
+
 > Web dashboard for `claw api`. Vite + React + TypeScript.
 > Connects to `claw api serve` — no backend of its own.
 
@@ -64,7 +70,8 @@ claw-console/
 │   ├── lib/
 │   │   ├── api.ts                  # fetch wrappers for REST endpoints
 │   │   ├── ws.ts                   # WebSocket connection factory
-│   │   └── config.ts               # base URL, token from localStorage
+│   │   ├── config.ts               # base URL, token from localStorage
+│   │   └── jid.ts                  # transportFromJID(), Transport type
 │   ├── store/
 │   │   ├── connection.ts           # Zustand: api URL, token, connection state
 │   │   └── health.ts               # Zustand: live health check state
@@ -93,6 +100,8 @@ claw-console/
 │   │   ├── groups/
 │   │   │   ├── GroupList.tsx       # GET /api/v1/groups
 │   │   │   └── GroupCard.tsx
+│   │   ├── common/
+│   │   │   └── TransportBadge.tsx  # WhatsApp/Telegram/Signal/Discord pill
 │   │   └── layout/
 │   │       ├── Sidebar.tsx
 │   │       ├── TopBar.tsx
@@ -261,10 +270,43 @@ export function createWS(path: string, onMessage: (msg: unknown) => void): () =>
 - Searchable table: group, started, last active, message count, summary
 - Click → opens REPL pre-loaded with that session ID
 
+### Transport detection (`src/lib/jid.ts`)
+
+```typescript
+export type Transport = 'whatsapp' | 'telegram' | 'signal' | 'discord' | 'unknown';
+
+export function transportFromJID(jid: string): Transport {
+  if (jid.startsWith('tg:'))      return 'telegram';
+  if (jid.startsWith('signal:'))  return 'signal';
+  if (jid.startsWith('dc:'))      return 'discord';
+  if (jid.endsWith('@g.us') || jid.endsWith('@s.whatsapp.net')) return 'whatsapp';
+  return 'unknown';
+}
+
+// Color + icon map for TransportBadge
+export const TRANSPORT_META: Record<Transport, { label: string; color: string; icon: string }> = {
+  whatsapp:  { label: 'WhatsApp', color: 'bg-green-600',  icon: '💬' },
+  telegram:  { label: 'Telegram', color: 'bg-blue-500',   icon: '✈️' },
+  signal:    { label: 'Signal',   color: 'bg-indigo-600', icon: '🔒' },
+  discord:   { label: 'Discord',  color: 'bg-purple-600', icon: '🎮' },
+  unknown:   { label: 'Unknown',  color: 'bg-gray-400',   icon: '?' },
+};
+```
+
+`<TransportBadge jid={jid} />` derives transport, looks up meta, renders a
+colored pill. Used in Groups cards, Watch header, and Agents table.
+
+---
+
 ### Groups view
 - `GET /api/v1/groups`
-- Cards: name, arch badge, JID, trigger, is_main indicator
+- Cards: name, `<TransportBadge>`, arch badge, JID, trigger, is_main indicator
 - Read-only — no edit (config lives in drivers)
+
+### Watch view header
+- Group name + `<TransportBadge>` + live/paused indicator
+- If transport is non-WhatsApp and `watch-bot-messages` fix not yet shipped,
+  show subtle `⚠ bot responses may not appear` tooltip on the badge
 
 ---
 
@@ -303,9 +345,16 @@ Served at `/` when `--console` flag is set. `claw api serve --console` opens the
 - `claw api serve --console` embedding
 
 ### Phase 2 — Live feeds
-- Watch view (WebSocket)
+- Watch view (WebSocket) — with `<TransportBadge>` in header
 - REPL view (WebSocket, streaming)
 - Session continuity (resume session from REPL)
+
+### Phase 2.5 — Diagnostics
+- Log drawer in REPL view: `WS /ws/logs/:group` → `docker logs -f` stream
+- Collapsible panel, auto-opens when agent is running
+- Container-mode groups only (`arch: nanoclaw` with Docker). SDK/native-mode
+  groups run in worker threads — log drawer shows "native mode" notice instead.
+- Transport badge added to Agents table row
 
 ### Phase 3 — Full
 - Sessions view (searchable history)

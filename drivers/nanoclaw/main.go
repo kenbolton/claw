@@ -51,6 +51,8 @@ func main() {
 			handleSessions(msg)
 		case "logs_request":
 			handleLogs(msg)
+		case "usage_request":
+			handleUsage(msg)
 		default:
 			writeError("UNKNOWN_TYPE", fmt.Sprintf("unknown message type: %q", msgType))
 		}

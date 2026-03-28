@@ -200,6 +200,25 @@ The driver exits when the orchestrator closes stdin (same lifecycle as `watch_re
 
 Drivers that don't support logs return `{"type": "error", "code": "UNSUPPORTED"}`.
 
+### usage_request
+
+Query token usage history from the `run_usage` table.
+
+```json
+{"type": "usage_request", "source_dir": "/path/to/install", "group_folder": "main", "since": "2026-03-01T00:00:00Z", "limit": 500}
+```
+
+All query parameters are optional. `group_folder` filters by group, `since` filters by `completed_at >= value`, `limit` caps the number of rows (default 500).
+
+Driver streams `usage_row` messages, then `usage_complete`:
+
+```json
+{"type": "usage_row", "id": 1, "group_folder": "main", "chat_jid": "120363...@g.us", "completed_at": "2026-03-28T10:00:00Z", "duration_ms": 5000, "input_tokens": 12450, "output_tokens": 3820, "cache_read_input_tokens": 8200, "cache_creation_input_tokens": 4250}
+{"type": "usage_complete"}
+```
+
+Drivers that don't track usage (or where the table doesn't exist yet) return only `usage_complete`.
+
 ### error
 
 Any request can result in an error:
