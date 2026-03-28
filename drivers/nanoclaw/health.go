@@ -390,33 +390,32 @@ func checkImage(sourceDir string) (status, detail, remediation string) {
 		return checkImageAppleContainers(sourceDir)
 	}
 
-	// Get the local image digest.
+	// Docker runtime
 	out, err := exec.Command("docker", "images", "nanoclaw-agent:latest", "--format", "{{.ID}}").Output()
 	if err != nil || strings.TrimSpace(string(out)) == "" {
-		return "fail", "nanoclaw-agent:latest not found locally",
+		return "fail", "Docker — nanoclaw-agent:latest not found locally",
 			"Pull or build the nanoclaw-agent image"
 	}
 
-	// Compare the arch version with what's in the image labels if available.
 	archVersion := detectArchVersion(sourceDir)
 	labelOut, err := exec.Command("docker", "inspect", "--format", "{{index .Config.Labels \"version\"}}", "nanoclaw-agent:latest").Output()
 	if err != nil {
-		return "pass", fmt.Sprintf("nanoclaw-agent:latest present (arch %s)", archVersion), ""
+		return "pass", fmt.Sprintf("Docker — nanoclaw-agent:latest (arch %s)", archVersion), ""
 	}
 	imageVersion := strings.TrimSpace(string(labelOut))
 	if imageVersion == "" || imageVersion == archVersion {
-		return "pass", fmt.Sprintf("nanoclaw-agent:latest matches arch version %s", archVersion), ""
+		return "pass", fmt.Sprintf("Docker — nanoclaw-agent:latest matches arch %s", archVersion), ""
 	}
 
 	behind := versionsBehind(imageVersion, archVersion)
-	detailStr := fmt.Sprintf("nanoclaw-agent:latest is %d versions behind (image=%s, arch=%s)", behind, imageVersion, archVersion)
+	detailStr := fmt.Sprintf("Docker — nanoclaw-agent:latest is %d versions behind (image=%s, arch=%s)", behind, imageVersion, archVersion)
 	if behind > 5 {
 		return "fail", detailStr, "Rebuild or pull the latest nanoclaw-agent image"
 	}
 	if behind > 0 {
 		return "warn", detailStr, "Consider rebuilding the nanoclaw-agent image"
 	}
-	return "pass", fmt.Sprintf("nanoclaw-agent:latest matches arch version %s", archVersion), ""
+	return "pass", fmt.Sprintf("Docker — nanoclaw-agent:latest matches arch %s", archVersion), ""
 }
 
 // checkImageAppleContainers queries Apple Containers for the image name and created date.
@@ -450,13 +449,13 @@ func checkImageAppleContainers(sourceDir string) (status, detail, remediation st
 		}
 		created := c.Configuration.Image.Descriptor.Annotations["org.opencontainers.image.created"]
 		if created != "" {
-			return "pass", fmt.Sprintf("%s (built %s)", ref, created), ""
+			return "pass", fmt.Sprintf("Apple Containers — %s (built %s)", ref, created), ""
 		}
-		return "pass", ref, ""
+		return "pass", fmt.Sprintf("Apple Containers — %s", ref), ""
 	}
 
 	archVersion := detectArchVersion(sourceDir)
-	return "pass", fmt.Sprintf("no running nanoclaw container (arch %s)", archVersion), ""
+	return "pass", fmt.Sprintf("Apple Containers — no running nanoclaw container (arch %s)", archVersion), ""
 }
 
 // versionsBehind does a simple semver minor+patch distance estimate.
