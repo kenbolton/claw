@@ -124,12 +124,15 @@ claw api serve                  Start the HTTP+WebSocket API server
   --port <N>                    Port to listen on (default: 7474)
   --bind <addr>                 Address to bind to (default: 127.0.0.1)
   --token <secret>              Enable bearer token authentication
+  --console                     Serve claw-console dashboard on same port
   --source-dir <path>           Target a specific installation directory
   --cors-origin <origin>        Additional allowed CORS origins (repeatable)
   Binds localhost only by default. --bind 0.0.0.0 requires --token.
   REST: /api/v1/{archs,ps,health,groups,sessions}
-  WebSocket: /ws/{watch,agent,health}
+  WebSocket: /ws/{watch,agent,health,logs}
   See spec/API.md for full endpoint documentation.
+
+claw molt                       Passthrough to molt (migration tool)
 
 claw completion <bash|zsh|fish> Generate shell completion scripts
   --install                     Install to the appropriate system path
@@ -226,9 +229,11 @@ claw completion fish --install
 `claw api serve` starts an HTTP+WebSocket server that exposes the driver protocol over the network. It is a thin translation layer — no business logic, just NDJSON-over-subprocess becomes JSON-over-HTTP/WS.
 
 ```
-$ claw api serve
-claw api serve — listening on 127.0.0.1:7474 (2 drivers, auth: off)
+$ claw api serve --console
+claw api serve — listening on 127.0.0.1:7474 (2 drivers, auth: off, console: on)
 ```
+
+With `--console`, the web dashboard is served at the root URL. Without it, only the API endpoints are available.
 
 ```
 $ curl -s localhost:7474/api/v1/ps | jq
@@ -239,7 +244,21 @@ $ curl -s localhost:7474/api/v1/ps | jq
 }
 ```
 
-The primary consumer is `claw-console` (the web dashboard), but any HTTP client can use it. See [spec/API.md](spec/API.md) for the full endpoint reference.
+**Endpoints:**
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/archs` | List installed drivers |
+| `GET /api/v1/ps` | List running agent instances (fan-out to all drivers) |
+| `GET /api/v1/health` | Run health checks across installations |
+| `GET /api/v1/groups` | List registered groups |
+| `GET /api/v1/sessions` | List sessions (day-based + Claude UUIDs, resumable) |
+| `WS /ws/watch/:group` | Stream messages in real time |
+| `WS /ws/agent/:group` | Send prompts, stream responses (multi-turn) |
+| `WS /ws/health` | Stream live health check results |
+| `WS /ws/logs/:group` | Stream container stdout/stderr |
+
+The primary consumer is [claw-console](https://github.com/claw-agent-operators/claw-console) (the web dashboard), but any HTTP client can use it. See [spec/API.md](spec/API.md) for the full endpoint reference.
 
 ## Status
 
