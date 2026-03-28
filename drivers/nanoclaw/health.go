@@ -679,14 +679,25 @@ func findOrphanedToolRefs(projectsDir string, installedTools map[string]bool, se
 	// are prefixed with a skill name pattern), not built-in tools.
 	builtinTools := map[string]bool{
 		"Bash": true, "Read": true, "Write": true, "Edit": true,
-		"Glob": true, "Grep": true, "Agent": true, "TodoWrite": true,
-		"TodoRead": true, "WebFetch": true, "WebSearch": true,
-		"NotebookEdit": true,
+		"MultiEdit": true, "Glob": true, "Grep": true, "Agent": true,
+		"Task": true, "TaskCreate": true, "TaskUpdate": true,
+		"TaskGet": true, "TaskList": true, "TaskOutput": true,
+		"TaskStop": true, "TodoWrite": true, "TodoRead": true,
+		"WebFetch": true, "WebSearch": true, "NotebookEdit": true,
+		"LSP": true, "EnterPlanMode": true, "ExitPlanMode": true,
+		"EnterWorktree": true, "ExitWorktree": true,
+		"AskUserQuestion": true, "Skill": true, "ToolSearch": true,
+		"CronCreate": true, "CronList": true, "CronDelete": true,
+		"RemoteTrigger": true,
 	}
 
 	var orphaned []string
 	for tool := range referencedTools {
 		if builtinTools[tool] {
+			continue
+		}
+		// Platform-provided MCP tools (mcp__nanoclaw__*) are not skills.
+		if strings.HasPrefix(tool, "mcp__") {
 			continue
 		}
 		if !installedTools[tool] {

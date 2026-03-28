@@ -150,7 +150,11 @@ the session wasn't cleared).
 
 - Parse the most recent `.jsonl` session file for each group
 - Check all tool_use blocks against currently installed tool names
-- Flag unresolved tool references
+- Exclude Claude Code built-in tools from the check (these appear in JSONL
+  but are not skills): `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`,
+  `WebFetch`, `WebSearch`, `Task`, `NotebookEdit`, `TodoWrite`,
+  `MultiEdit`, `ExitPlanMode`, `EnterPlanMode`, `Agent`
+- Flag unresolved tool references (non-built-ins only)
 
 Output example:
 
