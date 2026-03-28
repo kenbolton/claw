@@ -49,6 +49,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		LastActive   string `json:"last_active"`
 		MessageCount int    `json:"message_count"`
 		Summary      string `json:"summary"`
+		Resumable    bool   `json:"resumable,omitempty"`
 	}
 
 	var sessions []sessionInfo
@@ -70,6 +71,9 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			}
 			if v, ok := msg["message_count"].(float64); ok {
 				sess.MessageCount = int(v)
+			}
+			if v, ok := msg["resumable"].(bool); ok {
+				sess.Resumable = v
 			}
 			sessions = append(sessions, sess)
 		case "error":

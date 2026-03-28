@@ -4,6 +4,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // handleSessions lists recent sessions for a group.
@@ -42,6 +46,12 @@ func handleSessions(msg map[string]interface{}) {
 	}
 
 	for _, s := range sessions {
+		write(s)
+	}
+
+	// Also emit Claude session UUIDs from JSONL files
+	claudeSessions := findClaudeSessions(sourceDir, group.Folder, limit)
+	for _, s := range claudeSessions {
 		write(s)
 	}
 
@@ -157,4 +167,56 @@ func querySessions(db *sql.DB, chatJID, groupName string, limit int) ([]map[stri
 		})
 	}
 	return result, nil
+}
+
+// findClaudeSessions reads JSONL session files and returns session metadata
+// with real Claude session UUIDs that can be used to resume.
+func findClaudeSessions(sourceDir, folder string, limit int) []map[string]interface{} {
+	projectsDir := filepath.Join(sourceDir, "data", "sessions", folder, ".claude", "projects")
+
+	type sessionFile struct {
+		uuid    string
+		path    string
+		modTime int64
+		size    int64
+	}
+
+	var files []sessionFile
+	_ = filepath.Walk(projectsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".jsonl") {
+			return nil
+		}
+		name := strings.TrimSuffix(info.Name(), ".jsonl")
+		files = append(files, sessionFile{
+			uuid:    name,
+			path:    path,
+			modTime: info.ModTime().Unix(),
+			size:    info.Size(),
+		})
+		return nil
+	})
+
+	// Sort by modification time, newest first
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].modTime > files[j].modTime
+	})
+
+	if limit > 0 && len(files) > limit {
+		files = files[:limit]
+	}
+
+	var result []map[string]interface{}
+	for _, f := range files {
+		result = append(result, map[string]interface{}{
+			"type":          "session",
+			"session_id":    f.uuid,
+			"group":         folder,
+			"started_at":    "",
+			"last_active":   fmt.Sprintf("%d", f.modTime),
+			"message_count": 0,
+			"summary":       fmt.Sprintf("Claude session %s (%d KB)", f.uuid[:8], f.size/1024),
+			"resumable":     true,
+		})
+	}
+	return result
 }
