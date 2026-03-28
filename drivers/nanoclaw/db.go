@@ -90,10 +90,8 @@ type GroupRow struct {
 	Name            string
 	Folder          string
 	TriggerPattern  string
-	AgentName       *string
 	RequiresTrigger bool
 	IsMain          bool
-	IsDefaultDM     bool
 	ContainerConfig *string
 }
 
@@ -106,8 +104,8 @@ func readGroupRows(sourceDir string) ([]GroupRow, error) {
 	defer func() { _ = db.Close() }()
 
 	rows, err := db.Query(`
-		SELECT jid, name, folder, trigger_pattern, agent_name,
-		       requires_trigger, is_main, is_default_dm, container_config
+		SELECT jid, name, folder, trigger_pattern,
+		       requires_trigger, is_main, container_config
 		FROM registered_groups
 		ORDER BY name
 	`)
@@ -120,8 +118,8 @@ func readGroupRows(sourceDir string) ([]GroupRow, error) {
 	for rows.Next() {
 		var g GroupRow
 		if err := rows.Scan(
-			&g.JID, &g.Name, &g.Folder, &g.TriggerPattern, &g.AgentName,
-			&g.RequiresTrigger, &g.IsMain, &g.IsDefaultDM, &g.ContainerConfig,
+			&g.JID, &g.Name, &g.Folder, &g.TriggerPattern,
+			&g.RequiresTrigger, &g.IsMain, &g.ContainerConfig,
 		); err != nil {
 			return nil, err
 		}

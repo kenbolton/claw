@@ -22,9 +22,6 @@ func handleWatch(msg map[string]interface{}) {
 	}
 
 	agentName := "Agent"
-	if group.AgentName != nil && *group.AgentName != "" {
-		agentName = *group.AgentName
-	}
 
 	// Emit historical messages
 	history, err := readMessages(sourceDir, group.JID, lines)

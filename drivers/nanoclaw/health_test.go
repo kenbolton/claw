@@ -45,10 +45,8 @@ func createTestDB(t *testing.T, dir string) {
 			name TEXT NOT NULL,
 			folder TEXT NOT NULL,
 			trigger_pattern TEXT DEFAULT '',
-			agent_name TEXT,
 			requires_trigger INTEGER DEFAULT 0,
 			is_main INTEGER DEFAULT 0,
-			is_default_dm INTEGER DEFAULT 0,
 			container_config TEXT
 		);
 		CREATE TABLE IF NOT EXISTS messages (
@@ -80,8 +78,8 @@ func addTestGroup(t *testing.T, dir, jid, name, folder string, isMain bool) {
 	if isMain {
 		mainInt = 1
 	}
-	_, err = db.Exec(`INSERT INTO registered_groups (jid, name, folder, trigger_pattern, requires_trigger, is_main, is_default_dm)
-		VALUES (?, ?, ?, '', 0, ?, 0)`, jid, name, folder, mainInt)
+	_, err = db.Exec(`INSERT INTO registered_groups (jid, name, folder, trigger_pattern, requires_trigger, is_main)
+		VALUES (?, ?, ?, '', 0, ?)`, jid, name, folder, mainInt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,8 +300,8 @@ func TestCheckGroups(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer func() { _ = db.Close() }()
-		if _, err := db.Exec(`INSERT INTO registered_groups (jid, name, folder, trigger_pattern, requires_trigger, is_main, is_default_dm)
-			VALUES ('', 'broken', 'broken', '', 0, 0, 0)`); err != nil {
+		if _, err := db.Exec(`INSERT INTO registered_groups (jid, name, folder, trigger_pattern, requires_trigger, is_main)
+			VALUES ('', 'broken', 'broken', '', 0, 0)`); err != nil {
 			t.Fatal(err)
 		}
 
