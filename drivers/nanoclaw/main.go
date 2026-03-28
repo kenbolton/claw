@@ -49,6 +49,8 @@ func main() {
 			handleGroups(msg)
 		case "sessions_request":
 			handleSessions(msg)
+		case "logs_request":
+			handleLogs(msg)
 		default:
 			writeError("UNKNOWN_TYPE", fmt.Sprintf("unknown message type: %q", msgType))
 		}

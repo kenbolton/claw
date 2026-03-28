@@ -242,6 +242,24 @@ Server sends check results as they complete (not batched):
 {"type": "health_complete", "arch": "nanoclaw", "pass": 5, "warn": 1, "fail": 1, "ts": "2026-03-27T09:00:00Z"}
 ```
 
+### `WS /ws/logs/:group`
+
+Stream container logs (stdout + stderr) for a group in real time.
+
+Query params:
+- `arch` — target architecture (default: auto-detect)
+- `token` — bearer token (if auth enabled)
+
+Server sends:
+
+```json
+{"type": "log_line", "text": "agent-runner started", "timestamp": "2026-03-28T10:00:00Z", "stream": "stderr"}
+{"type": "log_line", "text": "session loaded: abc123", "timestamp": "2026-03-28T10:00:01Z", "stream": "stdout"}
+```
+
+Connection stays open until client disconnects. Returns error if no running
+container is found for the group.
+
 ---
 
 ## Error responses

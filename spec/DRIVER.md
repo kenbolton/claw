@@ -182,6 +182,24 @@ Driver emits zero or more session messages, then a completion:
 {"type": "sessions_complete"}
 ```
 
+### logs_request
+
+Stream container logs (stderr/stdout) for a group.
+
+```json
+{"type": "logs_request", "source_dir": "/path/to/install", "group": "main"}
+```
+
+Driver streams log lines continuously until stdin closes:
+
+```json
+{"type": "log_line", "text": "agent-runner started", "timestamp": "2026-03-27T09:00:00Z", "stream": "stderr"}
+```
+
+The driver exits when the orchestrator closes stdin (same lifecycle as `watch_request`).
+
+Drivers that don't support logs return `{"type": "error", "code": "UNSUPPORTED"}`.
+
 ### error
 
 Any request can result in an error:
@@ -205,6 +223,7 @@ Any request can result in an error:
 | `NATIVE_NO_DIST` | `--native` requested but agent-runner dist not built |
 | `UNSUPPORTED` | Driver does not implement the requested message type |
 | `CHECK_ERROR` | A health check could not be run (distinct from a failed check) |
+| `NO_CONTAINER` | No running container found for the specified group |
 
 ## Lifecycle
 

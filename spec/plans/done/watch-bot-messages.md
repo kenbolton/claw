@@ -1,5 +1,7 @@
 # Plan: Fix `claw watch` Missing Bot Responses
 
+> ~~SHIPPED 2026-03-28~~
+
 > `claw watch` shows only the user side of conversations on Telegram, Signal,
 > and other channels that don't self-echo sent messages.
 

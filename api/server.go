@@ -37,6 +37,7 @@ func (s *Server) NewServeMux() http.Handler {
 	mux.HandleFunc("GET /ws/watch/{group}", s.handleWatchWS)
 	mux.HandleFunc("GET /ws/agent/{group}", s.handleAgentWS)
 	mux.HandleFunc("GET /ws/health", s.handleHealthWS)
+	mux.HandleFunc("GET /ws/logs/{group}", s.handleLogsWS)
 
 	// Serve embedded console as SPA catch-all (if enabled)
 	if s.ConsoleFS != nil {
