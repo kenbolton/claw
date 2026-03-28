@@ -1,4 +1,4 @@
-# claw - Universal CLI for claw agent architectures.
+# claw - Universal CLI for claw agent architectures
 
 <p align="center">
   <img src="assets/terminal-grip.svg" alt="Claw" width="100">
