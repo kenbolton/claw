@@ -9,10 +9,9 @@ and overall.
 ## Command interface
 
 ```
-claw health                     Check the default (auto-detected) installation
-claw health --arch nanoclaw     Check all installations of a specific arch
+claw health                     Check all installed architectures
+claw health --arch nanoclaw     Check a specific architecture only
 claw health -g main             Check a specific group within an installation
-claw health --all               Check all installations from all installed drivers
 claw health --watch             Re-run every 30s (configurable with --interval)
 claw health --interval 60       Polling interval in seconds (default: 30)
 claw health --json              Emit NDJSON instead of formatted output
@@ -252,7 +251,7 @@ Each `check_result` may include:
   is not guaranteed
 - `--watch` mode clears the terminal between runs (ANSI clear); `--json` mode
   appends lines without clearing
-- If `--all` spans multiple drivers, results are grouped by driver/installation
+- When multiple drivers are installed, results are grouped by driver/installation
 - The `sessions` check requires ps-level access; drivers that implement
   `ps_request` can reuse that logic internally
 - Credential expiry parsing: OAuth tokens are JWTs; expiry is in the `exp`
