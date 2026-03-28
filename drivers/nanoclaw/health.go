@@ -387,8 +387,7 @@ func checkImage(sourceDir string) (status, detail, remediation string) {
 		return "pass", "no container runtime (skipped)", ""
 	}
 	if rt == "container" {
-		// Apple Containers image check: not yet supported.
-		return "pass", "Apple Containers (image version check not available)", ""
+		return checkImageAppleContainers(sourceDir)
 	}
 
 	// Get the local image digest.
@@ -418,6 +417,46 @@ func checkImage(sourceDir string) (status, detail, remediation string) {
 		return "warn", detailStr, "Consider rebuilding the nanoclaw-agent image"
 	}
 	return "pass", fmt.Sprintf("nanoclaw-agent:latest matches arch version %s", archVersion), ""
+}
+
+// checkImageAppleContainers queries Apple Containers for the image name and created date.
+func checkImageAppleContainers(sourceDir string) (status, detail, remediation string) {
+	out, err := exec.Command("container", "list", "--format", "json").Output()
+	if err != nil {
+		return "pass", "Apple Containers (could not query)", ""
+	}
+
+	var containers []struct {
+		Configuration struct {
+			Image struct {
+				Reference  string `json:"reference"`
+				Descriptor struct {
+					Annotations map[string]string `json:"annotations"`
+				} `json:"descriptor"`
+			} `json:"image"`
+			ID string `json:"id"`
+		} `json:"configuration"`
+		Status string `json:"status"`
+	}
+	if json.Unmarshal(out, &containers) != nil {
+		return "pass", "Apple Containers (could not parse)", ""
+	}
+
+	// Find a running nanoclaw container
+	for _, c := range containers {
+		ref := c.Configuration.Image.Reference
+		if c.Status != "running" || !strings.Contains(ref, "nanoclaw-agent") {
+			continue
+		}
+		created := c.Configuration.Image.Descriptor.Annotations["org.opencontainers.image.created"]
+		if created != "" {
+			return "pass", fmt.Sprintf("%s (built %s)", ref, created), ""
+		}
+		return "pass", ref, ""
+	}
+
+	archVersion := detectArchVersion(sourceDir)
+	return "pass", fmt.Sprintf("no running nanoclaw container (arch %s)", archVersion), ""
 }
 
 // versionsBehind does a simple semver minor+patch distance estimate.
