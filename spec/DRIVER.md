@@ -77,12 +77,16 @@ Send a prompt to an agent.
   "session_id": "",
   "resume_at": "",
   "native": false,
-  "verbose": false
+  "verbose": false,
+  "timeout": "5m",
+  "ephemeral": false
 }
 ```
 
 - `native` — run without a container (driver-specific; nanoclaw runs the agent-runner via Node.js). Drivers that don't support native mode may ignore this field.
 - `verbose` — pipe agent-runner/container diagnostic stderr to the terminal.
+- `timeout` — max duration for the agent response (Go duration string, e.g. `"30s"`, `"5m"`). Driver kills the agent process on deadline and returns `agent_complete` with `status: "timeout"`.
+- `ephemeral` — use a disposable workspace with no session persistence. Workspace is removed after the run. Mutually exclusive with `session_id`.
 
 Driver streams output chunks, then a completion:
 
@@ -90,6 +94,8 @@ Driver streams output chunks, then a completion:
 {"type": "agent_output", "text": "...", "chunk": true}
 {"type": "agent_complete", "session_id": "abc123", "status": "success", "input_tokens": 42, "output_tokens": 11}
 ```
+
+Status values: `success`, `error`, `timeout`. Omit `session_id` when `ephemeral` is true.
 
 ### watch_request
 

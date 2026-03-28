@@ -166,6 +166,21 @@ git diff | claw agent --native --pipe -f checklist.txt -g dev "also check for:"
 
 ---
 
-## Known Gaps / Roadmap
+## Flags Reference
 
-See `spec/plans/native-pipe-gaps.md`.
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--native` | | Run via Node.js instead of container |
+| `--pipe` | | Read prompt from stdin |
+| `--timeout` | `5m` | Kill agent after this duration (e.g. `30s`, `5m`) |
+| `--template` | | Prompt template — `{input}` replaced by stdin/file content |
+| `--ephemeral` | | Disposable workspace, no session persistence |
+| `--verbose` | | Pipe agent-runner stderr to terminal |
+
+Exit codes: `0` success, `1` error, `2` timeout.
+
+---
+
+## Remaining Gaps
+
+See `spec/plans/native-pipe-gaps.md` for gaps 4 (`--json`) and 5 (`--context-files`).

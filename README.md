@@ -92,7 +92,11 @@ claw agent [prompt]             Send a single prompt to an agent
   -p, --pipe                    Read prompt from stdin
       --native                  Run agent natively without a container (dev mode, no sandbox)
       --verbose                 Show agent-runner diagnostic output
+      --timeout <duration>      Max duration for agent response (default: 5m)
+  -t, --template <string>       Prompt template with {input} placeholder
+      --ephemeral               Use a disposable workspace (no session persistence)
   Prompt sources combine: -f and --pipe append to the positional arg.
+  Exit codes: 0=success, 1=error, 2=timeout.
 
 claw ps                         List running agent instances
   --arch <name>                 Query only this architecture

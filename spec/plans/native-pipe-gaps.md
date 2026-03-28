@@ -110,13 +110,13 @@ echo "check this PR" | claw agent --native --pipe --ephemeral -g ci
 
 ## Priority Order
 
-| # | Gap | Effort | Value | Ship |
-|---|-----|--------|-------|------|
-| 2 | Exit code surfacing | XS | high | v0.next |
-| 3 | `--timeout` | S | high | v0.next |
-| 1 | `--template` | S | medium | v0.next |
-| 6 | `--ephemeral` | S | high | v0.next |
+| # | Gap | Effort | Value | Status |
+|---|-----|--------|-------|--------|
+| 2 | Exit code surfacing | XS | high | ~~shipped~~ |
+| 3 | `--timeout` | S | high | ~~shipped~~ |
+| 1 | `--template` | S | medium | ~~shipped~~ |
+| 6 | `--ephemeral` | S | high | ~~shipped~~ |
 | 4 | `--json` output | M | medium | v0.2 |
 | 5 | `--context-files` | M | medium | v0.2 |
 
-Gaps 2, 3, 1, 6 are all small and highly complementary — ship together as a batch.
+Gaps 2, 3, 1, 6 shipped together as a batch.

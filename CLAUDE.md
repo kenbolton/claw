@@ -87,7 +87,7 @@ See `spec/DRIVER.md` for the full protocol spec.
 
 - `db.go` — SQLite helpers: open `store/messages.db`, read groups, read messages, fuzzy group matching
 - `ps.go` — queries container runtime (Docker or Apple Containers) + joins with SQLite `registered_groups`; longest-prefix match handles `nanoclaw-<folder>-<timestamp>` style container names
-- `agent.go` — resolves group, reads secrets from `.env`, spawns `nanoclaw-agent` container with structured mounts (`/workspace/group`, `/workspace/project`, `/home/node/.claude`), streams output through NDJSON. `--native` bypasses the container and runs the agent-runner via Node.js directly; `--verbose` pipes agent-runner stderr to the terminal.
+- `agent.go` — resolves group, reads secrets from `.env`, spawns `nanoclaw-agent` container with structured mounts (`/workspace/group`, `/workspace/project`, `/home/node/.claude`), streams output through NDJSON. `--native` bypasses the container and runs the agent-runner via Node.js directly; `--verbose` pipes agent-runner stderr to the terminal. Supports `--timeout` (kills node process on deadline), `--ephemeral` (disposable workspace with no session persistence), and `--template` (prompt templating with `{input}` placeholder).
 - `watch.go` — emits historical messages then polls SQLite for new rows; exits on stdin close
 - `health.go` — runs 8 health checks (runtime, credentials, database, disk, sessions, groups, skills, image) using existing helpers; streams `check_result` messages
 - `groups.go` — lists registered groups from SQLite via `readGroupRows()`; streams `group` messages
