@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Build all platforms
+        run: |
+          set -e
+          for pair in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do
+            os="${pair%/*}"
+            arch="${pair#*/}"
+            echo "Building $os/$arch..."
+            GOOS=$os GOARCH=$arch go build -o build/claw-${os}-${arch} ./src
+            GOOS=$os GOARCH=$arch go build -o build/claw-driver-nanoclaw-${os}-${arch} ./drivers/nanoclaw
+            GOOS=$os GOARCH=$arch go build -o build/claw-driver-zepto-${os}-${arch} ./drivers/zepto
+          done
+
+      - name: Package tarballs
+        run: |
+          set -e
+          cd build
+          tag="${GITHUB_REF_NAME}"
+          for pair in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64; do
+            os="${pair%-*}"
+            arch="${pair#*-}"
+            dir="claw-${tag}-${os}-${arch}"
+            mkdir "$dir"
+            cp "claw-${os}-${arch}" "$dir/claw"
+            cp "claw-driver-nanoclaw-${os}-${arch}" "$dir/claw-driver-nanoclaw"
+            cp "claw-driver-zepto-${os}-${arch}" "$dir/claw-driver-zepto"
+            tar czf "${dir}.tar.gz" "$dir"
+            rm -rf "$dir"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: build/claw-*.tar.gz
