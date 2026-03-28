@@ -65,7 +65,8 @@ claw api serve → starts HTTP+WebSocket server on localhost:7474
 **Key packages:**
 - `driver/` — driver discovery (`FindAll`, `Locate`), version probe, NDJSON protocol methods
 - `api/` — HTTP+WebSocket API server (`claw api serve`), translates driver NDJSON to HTTP/WS for `claw-console`
-- `src/cmd/` — Cobra commands (`repl`, `agent`, `ps`, `watch`, `health`, `archs`, `api`, `completion`)
+- `console/` — embedded claw-console static assets (Go embed); `--console` flag serves dashboard on same port
+- `src/cmd/` — Cobra commands (`repl`, `agent`, `ps`, `watch`, `health`, `archs`, `api`, `molt`, `completion`)
 - `drivers/nanoclaw/` — standalone NanoClaw driver binary (separate Go module)
 - `drivers/zepto/` — standalone ZeptoClaw driver binary (separate Go module)
 

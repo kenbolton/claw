@@ -3,7 +3,7 @@ SRC_DIR  := ./src
 BUILD_DIR := ./build
 PREFIX   := $(HOME)/.local
 
-.PHONY: all build build-drivers build-all clean test lint fmt install install-drivers install-all completions install-completions install-hooks
+.PHONY: all build build-drivers build-all clean test lint fmt install install-drivers install-all completions install-completions install-hooks embed-console
 
 all: build
 
@@ -74,6 +74,9 @@ install-hooks:
 	cp .githooks/pre-commit .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
 	@echo "Installed .githooks/pre-commit"
+
+embed-console:
+	./scripts/embed-console.sh
 
 clean:
 	rm -rf $(BUILD_DIR)

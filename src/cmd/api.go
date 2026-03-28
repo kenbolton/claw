@@ -4,6 +4,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kenbolton/claw/api"
+	"github.com/kenbolton/claw/console"
 	"github.com/kenbolton/claw/driver"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +23,7 @@ var (
 	flagAPIToken     string
 	flagAPISourceDir string
 	flagAPICORS      []string
+	flagAPIConsole   bool
 )
 
 var apiCmd = &cobra.Command{
@@ -50,6 +53,7 @@ is a hard error — no silent remote exposure.
 
 Examples:
   claw api serve                           # localhost:7474
+  claw api serve --console                 # serve dashboard on same port
   claw api serve --port 8080               # custom port
   claw api serve --bind 0.0.0.0 --token s  # expose with auth
   claw api serve --arch nanoclaw           # one architecture only`,
@@ -62,6 +66,7 @@ func init() {
 	apiServeCmd.Flags().StringVar(&flagAPIToken, "token", "", "Bearer token for authentication")
 	apiServeCmd.Flags().StringVar(&flagAPISourceDir, "source-dir", "", "Target a specific installation directory")
 	apiServeCmd.Flags().StringSliceVar(&flagAPICORS, "cors-origin", nil, "Additional allowed CORS origins")
+	apiServeCmd.Flags().BoolVar(&flagAPIConsole, "console", false, "Serve claw-console dashboard from the same port")
 
 	apiCmd.AddCommand(apiServeCmd)
 	rootCmd.AddCommand(apiCmd)
@@ -101,6 +106,14 @@ func runAPIServe(cmd *cobra.Command, args []string) error {
 		CORSOrigins: flagAPICORS,
 	}
 
+	if flagAPIConsole {
+		sub, err := fs.Sub(console.Assets, "dist")
+		if err != nil {
+			return fmt.Errorf("failed to load embedded console: %w", err)
+		}
+		srv.ConsoleFS = sub
+	}
+
 	// Graceful shutdown on SIGINT/SIGTERM.
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", flagAPIBind, flagAPIPort),
@@ -122,8 +135,12 @@ func runAPIServe(cmd *cobra.Command, args []string) error {
 	if flagAPIToken != "" {
 		authStatus = "on"
 	}
-	fmt.Printf("claw api serve — listening on %s:%d (%d drivers, auth: %s)\n",
-		flagAPIBind, flagAPIPort, len(drivers), authStatus)
+	consoleStatus := "off"
+	if flagAPIConsole {
+		consoleStatus = "on"
+	}
+	fmt.Printf("claw api serve — listening on %s:%d (%d drivers, auth: %s, console: %s)\n",
+		flagAPIBind, flagAPIPort, len(drivers), authStatus, consoleStatus)
 
 	err := httpServer.ListenAndServe()
 	if err == http.ErrServerClosed {
