@@ -41,12 +41,12 @@ func handleLogs(msg map[string]interface{}) {
 		return
 	}
 
-	// Tail container logs — stream new lines only (no stale history)
+	// Tail last 100 lines then follow for new output
 	var cmd *exec.Cmd
 	if runtime == "container" {
-		cmd = exec.Command("container", "logs", "--follow", "-n", "0", containerName)
+		cmd = exec.Command("container", "logs", "--follow", "-n", "100", containerName)
 	} else {
-		cmd = exec.Command("docker", "logs", "-f", "--tail", "0", containerName)
+		cmd = exec.Command("docker", "logs", "-f", "--tail", "100", containerName)
 	}
 
 	stdout, err := cmd.StdoutPipe()
