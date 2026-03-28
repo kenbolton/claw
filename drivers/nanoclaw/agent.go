@@ -3,6 +3,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var outputStartSentinel = "---NANOCLAW_OUTPUT_START---"
@@ -25,6 +28,8 @@ func handleAgent(msg map[string]interface{}) {
 	resumeAt, _ := msg["resume_at"].(string)
 	native, _ := msg["native"].(bool)
 	verbose, _ := msg["verbose"].(bool)
+	timeoutStr, _ := msg["timeout"].(string)
+	ephemeral, _ := msg["ephemeral"].(bool)
 
 	if prompt == "" {
 		writeError("MISSING_PROMPT", "prompt is required")
@@ -40,7 +45,7 @@ func handleAgent(msg map[string]interface{}) {
 	secrets := readSecrets(sourceDir)
 
 	if native {
-		handleAgentNative(group, sourceDir, prompt, sessionID, resumeAt, secrets, verbose)
+		handleAgentNative(group, sourceDir, prompt, sessionID, resumeAt, secrets, verbose, timeoutStr, ephemeral)
 		return
 	}
 
@@ -246,7 +251,7 @@ func handleAgent(msg map[string]interface{}) {
 // Sets up a temp workspace dir with symlinks mirroring the container layout,
 // injects secrets as env vars, and passes NANOCLAW_WORKSPACE_ROOT so the
 // agent-runner finds group/project/extra at the right paths.
-func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt string, secrets map[string]string, verbose bool) {
+func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt string, secrets map[string]string, verbose bool, timeoutStr string, ephemeral bool) {
 	// Locate node
 	node, err := exec.LookPath("node")
 	if err != nil {
@@ -261,10 +266,14 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 		return
 	}
 
-	// Set up temp workspace: /tmp/nanoclaw-native-<folder>/
-	// Intentionally persistent across calls — symlinks are rebuilt each time,
-	// so reuse is safe and avoids recreating the directory structure on every prompt.
+	// Set up temp workspace.
+	// Persistent mode: /tmp/nanoclaw-native-<folder>/ — reused across calls.
+	// Ephemeral mode: /tmp/nanoclaw-native-<folder>-<random>/ — removed after run.
 	workspaceRoot := filepath.Join(os.TempDir(), "nanoclaw-native-"+group.Folder)
+	if ephemeral {
+		workspaceRoot = filepath.Join(os.TempDir(), "nanoclaw-native-"+group.Folder+"-"+randomHex(8))
+		defer func() { _ = os.RemoveAll(workspaceRoot) }()
+	}
 	_ = os.MkdirAll(workspaceRoot, 0755)
 
 	// group → sourceDir/groups/<folder>
@@ -279,13 +288,18 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 	_ = os.Remove(projectLink)
 	_ = os.Symlink(sourceDir, projectLink)
 
-	// /home/node/.claude → session persistence across REPL turns (mirrors container mount).
-	// Symlinked as workspaceRoot/claude; HOME is overridden so node resolves ~/.claude there.
-	claudeDir := filepath.Join(sourceDir, "data", "sessions", group.Folder, ".claude")
-	_ = os.MkdirAll(claudeDir, 0755)
+	// .claude session dir.
+	// Persistent: symlink to real session dir for memory reuse.
+	// Ephemeral: fresh empty dir (no session persistence).
 	claudeLink := filepath.Join(workspaceRoot, "claude")
 	_ = os.Remove(claudeLink)
-	_ = os.Symlink(claudeDir, claudeLink)
+	if ephemeral {
+		_ = os.MkdirAll(claudeLink, 0755)
+	} else {
+		claudeDir := filepath.Join(sourceDir, "data", "sessions", group.Folder, ".claude")
+		_ = os.MkdirAll(claudeDir, 0755)
+		_ = os.Symlink(claudeDir, claudeLink)
+	}
 
 	// ipc/input dir (agent-runner polls this)
 	ipcInputDir := filepath.Join(workspaceRoot, "ipc", "input")
@@ -365,6 +379,18 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 	_, _ = stdin.Write(payloadJSON)
 	_ = stdin.Close()
 
+	// Timeout watchdog: kill the node process if it exceeds the deadline.
+	timedOut := false
+	if timeoutStr != "" {
+		if d, err := time.ParseDuration(timeoutStr); err == nil && d > 0 {
+			timer := time.AfterFunc(d, func() {
+				timedOut = true
+				_ = cmd.Process.Kill()
+			})
+			defer timer.Stop()
+		}
+	}
+
 	// Reuse the same sentinel-based output parsing as the container path
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 1024*1024), 10*1024*1024)
@@ -398,13 +424,16 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 				}
 				inputTokens, _ := result["inputTokens"].(float64)
 				outputTokens, _ := result["outputTokens"].(float64)
-				write(map[string]interface{}{
+				completeMsg := map[string]interface{}{
 					"type":          "agent_complete",
-					"session_id":    newSessionID,
 					"status":        status,
 					"input_tokens":  int(inputTokens),
 					"output_tokens": int(outputTokens),
-				})
+				}
+				if !ephemeral {
+					completeMsg["session_id"] = newSessionID
+				}
+				write(completeMsg)
 			}
 			_ = cmd.Process.Kill()
 			_ = cmd.Wait()
@@ -423,9 +452,26 @@ func handleAgentNative(group *GroupRow, sourceDir, prompt, sessionID, resumeAt s
 			rc = exitErr.ExitCode()
 		}
 	}
+
+	if timedOut {
+		write(map[string]interface{}{
+			"type":    "agent_complete",
+			"status":  "timeout",
+			"message": fmt.Sprintf("agent timed out after %s", timeoutStr),
+		})
+		return
+	}
+
 	write(map[string]interface{}{
 		"type":    "agent_complete",
 		"status":  "error",
 		"message": fmt.Sprintf("node exited (rc=%d) without output sentinel", rc),
 	})
+}
+
+// randomHex generates a random hex string of n bytes.
+func randomHex(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }

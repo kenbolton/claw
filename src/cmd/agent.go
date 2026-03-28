@@ -12,13 +12,16 @@ import (
 )
 
 var (
-	flagGroup   string
-	flagJID     string
-	flagSession string
-	flagFile    string
-	flagPipe    bool
-	flagNative  bool
-	flagVerbose bool
+	flagGroup     string
+	flagJID       string
+	flagSession   string
+	flagFile      string
+	flagPipe      bool
+	flagNative    bool
+	flagVerbose   bool
+	flagTimeout   string
+	flagTemplate  string
+	flagEphemeral bool
 )
 
 var agentCmd = &cobra.Command{
@@ -29,12 +32,20 @@ var agentCmd = &cobra.Command{
 The prompt can be provided as a positional argument, read from a file
 with -f, or piped via stdin with --pipe.
 
+Use --template to control where piped/file content appears in the prompt:
+  echo "data" | claw agent --pipe --template "Here is the data:\n\n{input}\n\nSummarise."
+
+Exit codes: 0=success, 1=error, 2=timeout.
+
 Examples:
   claw agent "What is 2+2?"
   claw agent -g dev "Review this code"
   claw agent -s <session-id> "Continue"
   echo "prompt" | claw agent --pipe -g main
-  claw agent -f tasks.txt`,
+  claw agent -f tasks.txt
+  git diff | claw agent --native --pipe -g dev "review this diff"
+  echo "data" | claw agent --native --pipe --timeout 30s --template "Analyse: {input}"
+  echo "one-off" | claw agent --native --pipe --ephemeral "process this"`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runAgent,
 }
@@ -47,6 +58,9 @@ func init() {
 	agentCmd.Flags().BoolVarP(&flagPipe, "pipe", "p", false, "Read prompt from stdin")
 	agentCmd.Flags().BoolVar(&flagNative, "native", false, "Run agent natively without a container (dev mode, no sandbox)")
 	agentCmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Show agent-runner diagnostic output")
+	agentCmd.Flags().StringVar(&flagTimeout, "timeout", "5m", "Max duration for agent response (e.g. 30s, 5m)")
+	agentCmd.Flags().StringVarP(&flagTemplate, "template", "t", "", "Prompt template with {input} placeholder for piped/file content")
+	agentCmd.Flags().BoolVar(&flagEphemeral, "ephemeral", false, "Use a disposable workspace (no session persistence)")
 
 	_ = agentCmd.RegisterFlagCompletionFunc("group", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -56,6 +70,11 @@ func init() {
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
+	// Validate flag combinations.
+	if flagEphemeral && flagSession != "" {
+		return fmt.Errorf("--ephemeral and --session are mutually exclusive")
+	}
+
 	// Resolve architecture
 	archName := flagArch
 	if archName == "" {
@@ -83,12 +102,17 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		"resume_at":  "",
 		"native":     flagNative,
 		"verbose":    flagVerbose,
+		"timeout":    flagTimeout,
+		"ephemeral":  flagEphemeral,
 	}
 
 	scanner, wait, err := d.SendRequestAndClose(req)
 	if err != nil {
 		return err
 	}
+
+	var agentErr error
+	gotComplete := false
 
 	for scanner.Scan() {
 		var msg map[string]interface{}
@@ -101,23 +125,29 @@ func runAgent(cmd *cobra.Command, args []string) error {
 			text, _ := msg["text"].(string)
 			chunk, _ := msg["chunk"].(bool)
 			if chunk {
-				// Streaming chunk — print without extra newline
 				fmt.Print(text)
 			} else {
 				fmt.Println(text)
 			}
 		case "agent_complete":
+			gotComplete = true
 			status, _ := msg["status"].(string)
 			sessionID, _ := msg["session_id"].(string)
 			if sessionID != "" {
 				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\n[session: %s]\n", sessionID)
 			}
+			if status == "timeout" {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "agent timed out\n")
+				_ = wait()
+				os.Exit(2)
+			}
 			if status != "success" && status != "" {
 				message, _ := msg["message"].(string)
 				if message != "" {
-					return fmt.Errorf("agent %s: %s", status, message)
+					agentErr = fmt.Errorf("agent %s: %s", status, message)
+				} else {
+					agentErr = fmt.Errorf("agent status: %s", status)
 				}
-				return fmt.Errorf("agent status: %s", status)
 			}
 		case "error":
 			code, _ := msg["code"].(string)
@@ -126,10 +156,44 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	return wait()
+	_ = wait()
+
+	if !gotComplete {
+		return fmt.Errorf("driver exited without sending agent_complete")
+	}
+	return agentErr
 }
 
 func resolvePrompt(args []string) (string, error) {
+	if flagTemplate != "" {
+		// Template mode: collect input from file/stdin, substitute into template.
+		var inputParts []string
+		if flagFile != "" {
+			data, err := os.ReadFile(flagFile)
+			if err != nil {
+				return "", fmt.Errorf("failed to read file %s: %w", flagFile, err)
+			}
+			inputParts = append(inputParts, strings.TrimSpace(string(data)))
+		}
+		if flagPipe {
+			data, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return "", fmt.Errorf("failed to read stdin: %w", err)
+			}
+			inputParts = append(inputParts, strings.TrimSpace(string(data)))
+		}
+		if len(args) > 0 && len(inputParts) == 0 {
+			// Use positional arg as input if no file/pipe content.
+			inputParts = append(inputParts, args[0])
+		}
+		input := strings.Join(inputParts, "\n\n")
+		if input == "" {
+			return "", fmt.Errorf("--template requires input from --pipe, -f, or a positional argument")
+		}
+		return strings.ReplaceAll(flagTemplate, "{input}", input), nil
+	}
+
+	// Standard mode: join all parts with double newline.
 	var parts []string
 
 	if len(args) > 0 {
