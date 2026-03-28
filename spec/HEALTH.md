@@ -130,6 +130,54 @@ Are the registered groups consistent?
 
 ---
 
+### skills
+Are the installed skills consistent across session dirs?
+
+Scans `data/sessions/*/skills/` for conflicts that would cause Claude Code
+to behave unpredictably. Two failure modes:
+
+**Tool name collision** — two different skills register the same tool name.
+Claude Code's behavior when this happens is undefined; the last-loaded skill
+wins, silently dropping the other.
+
+- Scan all skill dirs per group session
+- Parse each `SKILL.md` (or `skill.json`) for `tools:` declarations
+- Flag any tool name that appears in more than one skill
+
+**Orphaned branch ref** — a session JSONL references a skill tool that no
+longer exists in the installed skill set (skill was removed or renamed but
+the session wasn't cleared).
+
+- Parse the most recent `.jsonl` session file for each group
+- Check all tool_use blocks against currently installed tool names
+- Flag unresolved tool references
+
+Output example:
+
+```
+nanoclaw  /Users/you/src/nanoclaw
+  ✗  skills  tool name collision: "Bash" registered by both "clawsec" and "devtools" in group "dev"
+  ⚠  skills  orphaned tool ref: "WikiSearch" in dev/.claude/*.jsonl — skill not installed
+```
+
+- **Pass:** no collisions, no orphaned refs
+- **Warn:** orphaned refs only (session will work but may produce tool-not-found errors)
+- **Fail:** tool name collision (one skill silently shadows another)
+
+**Quick fix guidance** (always included on warn/fail):
+
+```
+remediation: "rm -rf data/sessions/dev/.claude/skills/<skill-name>/ to remove the conflicting skill"
+```
+
+For orphaned refs, the only clean fix is clearing the session:
+
+```
+remediation: "rm -rf data/sessions/dev/.claude/ to start a clean session (group memory is preserved)"
+```
+
+---
+
 ### image
 Is the container image up to date? *(container path only)*
 
@@ -166,7 +214,7 @@ without driver help (runtime detection, disk space).
   "type": "health_request",
   "source_dir": "/path/to/install",
   "group": "",
-  "checks": ["runtime", "credentials", "database", "disk", "sessions", "groups", "image"]
+  "checks": ["runtime", "credentials", "database", "disk", "sessions", "groups", "skills", "image"]
 }
 ```
 
