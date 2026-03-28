@@ -150,13 +150,17 @@ func findAppleContainer(folder string) string {
 				Destination string `json:"destination"`
 			} `json:"mounts"`
 		} `json:"configuration"`
-		Status string `json:"status"`
+		Status      string  `json:"status"`
+		StartedDate float64 `json:"startedDate"`
 	}
 	if json.Unmarshal(out, &containers) != nil {
 		return ""
 	}
 
 	suffix := "/groups/" + folder
+	bestID := ""
+	bestStart := 0.0
+
 	for _, c := range containers {
 		if c.Status != "running" {
 			continue
@@ -166,9 +170,12 @@ func findAppleContainer(folder string) string {
 		}
 		for _, m := range c.Configuration.Mounts {
 			if m.Destination == "/workspace/group" && strings.HasSuffix(m.Source, suffix) {
-				return c.Configuration.ID
+				if c.StartedDate > bestStart {
+					bestID = c.Configuration.ID
+					bestStart = c.StartedDate
+				}
 			}
 		}
 	}
-	return ""
+	return bestID
 }
