@@ -122,7 +122,7 @@ Run health diagnostics against an installation.
   "type": "health_request",
   "source_dir": "/path/to/install",
   "group": "",
-  "checks": ["runtime", "credentials", "database", "disk", "sessions", "groups", "image"]
+  "checks": ["runtime", "credentials", "database", "disk", "sessions", "groups", "skills", "image"]
 }
 ```
 

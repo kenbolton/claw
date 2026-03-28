@@ -2,12 +2,14 @@
 package main
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -30,7 +32,7 @@ func handleHealth(msg map[string]interface{}) {
 		}
 	}
 
-	allChecks := []string{"runtime", "credentials", "database", "disk", "sessions", "groups", "image"}
+	allChecks := []string{"runtime", "credentials", "database", "disk", "sessions", "groups", "skills", "image"}
 	if len(requested) == 0 {
 		requested = allChecks
 	}
@@ -60,6 +62,8 @@ func handleHealth(msg map[string]interface{}) {
 			status, detail, remediation = checkSessions()
 		case "groups":
 			status, detail, remediation = checkGroups(sourceDir, group)
+		case "skills":
+			status, detail, remediation = checkSkills(sourceDir, group)
 		case "image":
 			status, detail, remediation = checkImage(sourceDir)
 		}
@@ -446,4 +450,250 @@ func parseVersionParts(v string) []int {
 		nums = append(nums, n)
 	}
 	return nums
+}
+
+func checkSkills(sourceDir, filterGroup string) (status, detail, remediation string) {
+	sessionsDir := filepath.Join(sourceDir, "data", "sessions")
+	entries, err := os.ReadDir(sessionsDir)
+	if err != nil {
+		return "pass", "no sessions directory", ""
+	}
+
+	var collisions []string
+	var orphaned []string
+	totalSkills := 0
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		sessionName := e.Name()
+		if filterGroup != "" && !strings.EqualFold(sessionName, filterGroup) {
+			continue
+		}
+
+		skillsDir := filepath.Join(sessionsDir, sessionName, ".claude", "skills")
+		skillEntries, err := os.ReadDir(skillsDir)
+		if err != nil {
+			continue // no skills dir for this session
+		}
+
+		// Collect tool → skill mappings for this session.
+		toolOwners := map[string][]string{} // tool name → []skill names
+		allTools := map[string]bool{}
+
+		for _, se := range skillEntries {
+			if !se.IsDir() {
+				continue
+			}
+			skillName := se.Name()
+			totalSkills++
+			skillPath := filepath.Join(skillsDir, skillName)
+
+			// Parse SKILL.md for allowed-tools.
+			tools := parseSkillMDTools(filepath.Join(skillPath, "SKILL.md"))
+			for _, t := range tools {
+				toolOwners[t] = append(toolOwners[t], skillName)
+				allTools[t] = true
+			}
+
+			// Parse skill.json for mcp_tools.
+			mcpTools := parseSkillJSONTools(filepath.Join(skillPath, "skill.json"))
+			for _, t := range mcpTools {
+				toolOwners[t] = append(toolOwners[t], skillName)
+				allTools[t] = true
+			}
+		}
+
+		// Check for collisions.
+		for tool, owners := range toolOwners {
+			if len(owners) > 1 {
+				// Deduplicate owner names.
+				seen := map[string]bool{}
+				var unique []string
+				for _, o := range owners {
+					if !seen[o] {
+						seen[o] = true
+						unique = append(unique, o)
+					}
+				}
+				if len(unique) > 1 {
+					sort.Strings(unique)
+					collisions = append(collisions,
+						fmt.Sprintf("tool name collision: %q registered by both %q and %q in group %q",
+							tool, unique[0], unique[1], sessionName))
+				}
+			}
+		}
+
+		// Check for orphaned tool refs in session JSONL files.
+		orphanedRefs := findOrphanedToolRefs(
+			filepath.Join(sessionsDir, sessionName, ".claude", "projects"),
+			allTools, sessionName,
+		)
+		orphaned = append(orphaned, orphanedRefs...)
+	}
+
+	if len(collisions) > 0 {
+		return "fail", collisions[0],
+			"rm -rf data/sessions/<group>/.claude/skills/<skill-name>/ to remove the conflicting skill"
+	}
+	if len(orphaned) > 0 {
+		return "warn", orphaned[0],
+			"rm -rf data/sessions/<group>/.claude/ to start a clean session (group memory is preserved)"
+	}
+	if totalSkills == 0 {
+		return "pass", "no skills installed", ""
+	}
+	return "pass", fmt.Sprintf("%d skills installed, no conflicts", totalSkills), ""
+}
+
+// parseSkillMDTools extracts tool names from a SKILL.md's allowed-tools frontmatter.
+// Format: "allowed-tools: Bash(skillname:*)" → returns ["Bash"]
+func parseSkillMDTools(path string) []string {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+
+	scanner := bufio.NewScanner(f)
+	inFrontmatter := false
+	var tools []string
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "---" {
+			if inFrontmatter {
+				break // end of frontmatter
+			}
+			inFrontmatter = true
+			continue
+		}
+		if !inFrontmatter {
+			continue
+		}
+		if strings.HasPrefix(line, "allowed-tools:") {
+			value := strings.TrimPrefix(line, "allowed-tools:")
+			value = strings.TrimSpace(value)
+			// Parse comma-separated tool declarations like "Bash(x:*), Read, Write"
+			for _, decl := range strings.Split(value, ",") {
+				decl = strings.TrimSpace(decl)
+				if decl == "" {
+					continue
+				}
+				// Extract tool name before any parenthesized qualifier.
+				if idx := strings.Index(decl, "("); idx > 0 {
+					decl = decl[:idx]
+				}
+				tools = append(tools, strings.TrimSpace(decl))
+			}
+		}
+	}
+	return tools
+}
+
+// parseSkillJSONTools extracts MCP tool names from a skill.json's nanoclaw.mcp_tools array.
+func parseSkillJSONTools(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var doc struct {
+		NanoClaw struct {
+			MCPTools []string `json:"mcp_tools"`
+		} `json:"nanoclaw"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil
+	}
+	return doc.NanoClaw.MCPTools
+}
+
+// findOrphanedToolRefs scans JSONL session files for tool_use blocks that reference
+// tools not in the installed set.
+func findOrphanedToolRefs(projectsDir string, installedTools map[string]bool, sessionName string) []string {
+	if len(installedTools) == 0 {
+		return nil
+	}
+
+	// Find the most recent JSONL file.
+	var newest string
+	var newestTime time.Time
+
+	_ = filepath.Walk(projectsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".jsonl") {
+			return nil
+		}
+		if info.ModTime().After(newestTime) {
+			newest = path
+			newestTime = info.ModTime()
+		}
+		return nil
+	})
+
+	if newest == "" {
+		return nil
+	}
+
+	f, err := os.Open(newest)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+
+	// Scan for tool_use blocks and collect referenced tool names.
+	referencedTools := map[string]bool{}
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1024*1024), 10*1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		// Quick check to avoid unmarshaling every line.
+		if !strings.Contains(string(line), "tool_use") {
+			continue
+		}
+		var entry struct {
+			Message struct {
+				Content []struct {
+					Type string `json:"type"`
+					Name string `json:"name"`
+				} `json:"content"`
+			} `json:"message"`
+		}
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		for _, c := range entry.Message.Content {
+			if c.Type == "tool_use" && c.Name != "" {
+				referencedTools[c.Name] = true
+			}
+		}
+	}
+
+	// Check each referenced tool against installed set.
+	// Only flag tools that look like skill-provided tools (contain underscore or
+	// are prefixed with a skill name pattern), not built-in tools.
+	builtinTools := map[string]bool{
+		"Bash": true, "Read": true, "Write": true, "Edit": true,
+		"Glob": true, "Grep": true, "Agent": true, "TodoWrite": true,
+		"TodoRead": true, "WebFetch": true, "WebSearch": true,
+		"NotebookEdit": true,
+	}
+
+	var orphaned []string
+	for tool := range referencedTools {
+		if builtinTools[tool] {
+			continue
+		}
+		if !installedTools[tool] {
+			orphaned = append(orphaned, fmt.Sprintf(
+				"orphaned tool ref: %q in %s/.claude/*.jsonl — skill not installed",
+				tool, sessionName))
+		}
+	}
+	return orphaned
 }

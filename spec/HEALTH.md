@@ -34,6 +34,7 @@ nanoclaw  /Users/you/src/nanoclaw
   ✗  disk            group dir 94% full (/Users/you/src/nanoclaw/groups)
   ✓  sessions        3 active, 0 stuck
   ✓  groups          4 registered (main, dev, family, work)
+  ✓  skills          8 skills installed, no conflicts
   ⚠  image           nanoclaw-agent:latest is 12 versions behind
 
 Overall: WARN  (1 error, 1 warning)

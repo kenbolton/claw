@@ -35,7 +35,7 @@ func handleHealth(msg map[string]interface{}) {
 		}
 	}
 
-	allChecks := []string{"runtime", "credentials", "disk", "sessions", "database", "groups", "image"}
+	allChecks := []string{"runtime", "credentials", "disk", "sessions", "database", "groups", "skills", "image"}
 	if len(requested) == 0 {
 		requested = allChecks
 	}
@@ -61,7 +61,7 @@ func handleHealth(msg map[string]interface{}) {
 			status, detail, remediation = checkZeptoDisk(dataDir)
 		case "sessions":
 			status, detail, remediation = checkZeptoSessions(dataDir)
-		case "database", "groups", "image":
+		case "database", "groups", "skills", "image":
 			status, detail = "pass", "not applicable to zepto"
 		}
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -503,4 +504,244 @@ func trimSpace(s string) string {
 		j--
 	}
 	return s[i:j]
+}
+
+// --- Skills check tests ---
+
+// createSkillDir creates a skill with a SKILL.md containing allowed-tools.
+func createSkillDir(t *testing.T, dir, sessionName, skillName, allowedTools string) {
+	t.Helper()
+	skillDir := filepath.Join(dir, "data", "sessions", sessionName, ".claude", "skills", skillName)
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := fmt.Sprintf("---\nname: %s\ndescription: test skill\n", skillName)
+	if allowedTools != "" {
+		content += fmt.Sprintf("allowed-tools: %s\n", allowedTools)
+	}
+	content += "---\n\n# Test skill\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// createSkillJSON creates a skill.json with mcp_tools.
+func createSkillJSON(t *testing.T, dir, sessionName, skillName string, mcpTools []string) {
+	t.Helper()
+	skillDir := filepath.Join(dir, "data", "sessions", sessionName, ".claude", "skills", skillName)
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	doc := map[string]interface{}{
+		"name": skillName,
+		"nanoclaw": map[string]interface{}{
+			"mcp_tools": mcpTools,
+		},
+	}
+	data, _ := json.Marshal(doc)
+	if err := os.WriteFile(filepath.Join(skillDir, "skill.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// createSessionJSONL creates a JSONL session file with tool_use entries.
+func createSessionJSONL(t *testing.T, dir, sessionName string, toolNames []string) {
+	t.Helper()
+	projectDir := filepath.Join(dir, "data", "sessions", sessionName, ".claude", "projects", "-workspace-group")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, name := range toolNames {
+		entry := map[string]interface{}{
+			"message": map[string]interface{}{
+				"content": []map[string]interface{}{
+					{"type": "tool_use", "name": name, "id": "toolu_test"},
+				},
+			},
+		}
+		data, _ := json.Marshal(entry)
+		lines = append(lines, string(data))
+	}
+	if err := os.WriteFile(
+		filepath.Join(projectDir, "test-session.jsonl"),
+		[]byte(strings.Join(lines, "\n")+"\n"),
+		0o644,
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCheckSkillsNoSkills(t *testing.T) {
+	dir := testSourceDir(t)
+	status, detail, _ := checkSkills(dir, "")
+	if status != "pass" {
+		t.Errorf("expected pass, got %s", status)
+	}
+	if detail != "no sessions directory" && detail != "no skills installed" {
+		t.Errorf("unexpected detail: %s", detail)
+	}
+}
+
+func TestCheckSkillsPass(t *testing.T) {
+	dir := testSourceDir(t)
+	createSkillDir(t, dir, "main", "browser", "Bash(browser:*)")
+	createSkillDir(t, dir, "main", "status", "")
+
+	status, detail, _ := checkSkills(dir, "")
+	if status != "pass" {
+		t.Errorf("expected pass, got %s: %s", status, detail)
+	}
+	if !strings.Contains(detail, "2 skills") {
+		t.Errorf("expected '2 skills' in detail, got: %s", detail)
+	}
+}
+
+func TestCheckSkillsCollision(t *testing.T) {
+	dir := testSourceDir(t)
+	// Two skills both declare Bash as an allowed tool.
+	createSkillDir(t, dir, "main", "skill-a", "Bash(a:*)")
+	createSkillDir(t, dir, "main", "skill-b", "Bash(b:*)")
+
+	status, detail, remediation := checkSkills(dir, "")
+	if status != "fail" {
+		t.Errorf("expected fail, got %s: %s", status, detail)
+	}
+	if !strings.Contains(detail, "tool name collision") {
+		t.Errorf("expected 'tool name collision' in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "Bash") {
+		t.Errorf("expected 'Bash' in detail, got: %s", detail)
+	}
+	if remediation == "" {
+		t.Error("expected remediation for collision")
+	}
+}
+
+func TestCheckSkillsMCPToolCollision(t *testing.T) {
+	dir := testSourceDir(t)
+	// Two skills both register the same MCP tool via skill.json.
+	createSkillJSON(t, dir, "main", "sec-a", []string{"check_vuln", "scan_ports"})
+	createSkillJSON(t, dir, "main", "sec-b", []string{"check_vuln", "list_cves"})
+
+	status, detail, _ := checkSkills(dir, "")
+	if status != "fail" {
+		t.Errorf("expected fail, got %s: %s", status, detail)
+	}
+	if !strings.Contains(detail, "check_vuln") {
+		t.Errorf("expected 'check_vuln' in detail, got: %s", detail)
+	}
+}
+
+func TestCheckSkillsOrphanedRef(t *testing.T) {
+	dir := testSourceDir(t)
+	// Install one skill with one MCP tool.
+	createSkillJSON(t, dir, "main", "my-skill", []string{"my_tool"})
+	// Session references a tool that isn't installed.
+	createSessionJSONL(t, dir, "main", []string{"my_tool", "removed_tool"})
+
+	status, detail, remediation := checkSkills(dir, "")
+	if status != "warn" {
+		t.Errorf("expected warn, got %s: %s", status, detail)
+	}
+	if !strings.Contains(detail, "orphaned tool ref") {
+		t.Errorf("expected 'orphaned tool ref' in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "removed_tool") {
+		t.Errorf("expected 'removed_tool' in detail, got: %s", detail)
+	}
+	if remediation == "" {
+		t.Error("expected remediation for orphaned ref")
+	}
+}
+
+func TestCheckSkillsBuiltinToolsNotFlagged(t *testing.T) {
+	dir := testSourceDir(t)
+	createSkillDir(t, dir, "main", "my-skill", "")
+	// Session only references builtin tools — should not be flagged.
+	createSessionJSONL(t, dir, "main", []string{"Bash", "Read", "Write", "Edit"})
+
+	status, detail, _ := checkSkills(dir, "")
+	if status != "pass" {
+		t.Errorf("expected pass (builtins should not be flagged), got %s: %s", status, detail)
+	}
+}
+
+func TestCheckSkillsFilterGroup(t *testing.T) {
+	dir := testSourceDir(t)
+	createSkillDir(t, dir, "main", "skill-a", "Bash(a:*)")
+	createSkillDir(t, dir, "main", "skill-b", "Bash(b:*)")
+	createSkillDir(t, dir, "dev", "skill-c", "")
+
+	// Filter to "dev" — should not see the collision in "main".
+	status, detail, _ := checkSkills(dir, "dev")
+	if status != "pass" {
+		t.Errorf("expected pass for dev group, got %s: %s", status, detail)
+	}
+
+	// Filter to "main" — should see the collision.
+	status, detail, _ = checkSkills(dir, "main")
+	if status != "fail" {
+		t.Errorf("expected fail for main group, got %s: %s", status, detail)
+	}
+}
+
+func TestParseSkillMDTools(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "SKILL.md")
+
+	// Multiple tools.
+	content := "---\nname: test\nallowed-tools: Bash(x:*), Read, WebFetch\n---\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tools := parseSkillMDTools(path)
+	if len(tools) != 3 {
+		t.Fatalf("expected 3 tools, got %d: %v", len(tools), tools)
+	}
+	if tools[0] != "Bash" || tools[1] != "Read" || tools[2] != "WebFetch" {
+		t.Errorf("unexpected tools: %v", tools)
+	}
+}
+
+func TestParseSkillMDToolsNoAllowedTools(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "SKILL.md")
+	content := "---\nname: test\ndescription: no tools\n---\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tools := parseSkillMDTools(path)
+	if len(tools) != 0 {
+		t.Errorf("expected 0 tools, got %v", tools)
+	}
+}
+
+func TestParseSkillJSONTools(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "skill.json")
+	doc := map[string]interface{}{
+		"name": "test",
+		"nanoclaw": map[string]interface{}{
+			"mcp_tools": []string{"tool_a", "tool_b"},
+		},
+	}
+	data, _ := json.Marshal(doc)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tools := parseSkillJSONTools(path)
+	if len(tools) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(tools))
+	}
+	if tools[0] != "tool_a" || tools[1] != "tool_b" {
+		t.Errorf("unexpected tools: %v", tools)
+	}
+}
+
+func TestParseSkillJSONToolsMissing(t *testing.T) {
+	tools := parseSkillJSONTools("/nonexistent/skill.json")
+	if len(tools) != 0 {
+		t.Errorf("expected 0 tools for missing file, got %v", tools)
+	}
 }

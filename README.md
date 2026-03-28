@@ -105,7 +105,7 @@ claw health                     Run health diagnostics on installations
   --interval <seconds>          Polling interval in seconds (default: 30)
   --json                        Emit NDJSON instead of formatted output
   --fail-fast                   Exit 1 on first failed check
-  Checks: runtime, credentials, database, disk, sessions, groups, image.
+  Checks: runtime, credentials, database, disk, sessions, groups, skills, image.
   Exit codes: 0=pass, 1=fail, 2=warn, 3=cannot run.
 
 claw watch                      Stream messages in real time

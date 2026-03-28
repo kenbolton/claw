@@ -27,8 +27,8 @@ var healthCmd = &cobra.Command{
 	Short: "Run health diagnostics on claw installations",
 	Long: `Run health checks against one or more claw agent installations.
 
-Checks runtime, credentials, database, disk, sessions, groups, and image
-status. Reports pass/warn/fail per check with an overall summary.
+Checks runtime, credentials, database, disk, sessions, groups, skills, and
+image status. Reports pass/warn/fail per check with an overall summary.
 
 Examples:
   claw health
