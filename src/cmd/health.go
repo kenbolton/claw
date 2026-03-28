@@ -16,7 +16,6 @@ import (
 
 var (
 	flagHealthJSON     bool
-	flagHealthAll      bool
 	flagHealthGroup    string
 	flagHealthWatch    bool
 	flagHealthInterval int
@@ -35,7 +34,6 @@ Examples:
   claw health
   claw health --arch nanoclaw
   claw health -g main
-  claw health --all
   claw health --watch
   claw health --watch --interval 60
   claw health --json
@@ -45,7 +43,6 @@ Examples:
 
 func init() {
 	healthCmd.Flags().BoolVar(&flagHealthJSON, "json", false, "Emit NDJSON instead of formatted output")
-	healthCmd.Flags().BoolVar(&flagHealthAll, "all", false, "Check all installations from all installed drivers")
 	healthCmd.Flags().StringVarP(&flagHealthGroup, "group", "g", "", "Check a specific group within an installation")
 	healthCmd.Flags().BoolVar(&flagHealthWatch, "watch", false, "Re-run every --interval seconds")
 	healthCmd.Flags().IntVar(&flagHealthInterval, "interval", 30, "Polling interval in seconds (used with --watch)")
@@ -204,9 +201,6 @@ func runHealthOnce(cmd *cobra.Command) int {
 }
 
 func resolveHealthDrivers() ([]*driver.Driver, error) {
-	if flagHealthAll {
-		return driver.FindAll()
-	}
 	if flagArch != "" {
 		d, err := locateDriver(flagArch)
 		if err != nil {
@@ -214,21 +208,8 @@ func resolveHealthDrivers() ([]*driver.Driver, error) {
 		}
 		return []*driver.Driver{d}, nil
 	}
-	// Auto-detect.
-	archName, err := driver.DetectArch(".")
-	if err != nil {
-		// Fallback: try to find any driver.
-		all, findErr := driver.FindAll()
-		if findErr != nil || len(all) == 0 {
-			return nil, err
-		}
-		return all[:1], nil
-	}
-	d, err := locateDriver(archName)
-	if err != nil {
-		return nil, err
-	}
-	return []*driver.Driver{d}, nil
+	// Default: check all installed drivers (matches claw ps behavior).
+	return driver.FindAll()
 }
 
 // queryDriverHealth sends a health_request to the driver and collects results.

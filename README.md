@@ -100,7 +100,6 @@ claw ps                         List running agent instances
 
 claw health                     Run health diagnostics on installations
   --arch <name>                 Check a specific architecture
-  --all                         Check all installations from all installed drivers
   -g, --group <name>            Check a specific group within an installation
   --watch                       Re-run every --interval seconds
   --interval <seconds>          Polling interval in seconds (default: 30)
